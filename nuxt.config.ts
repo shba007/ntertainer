@@ -2,5 +2,6 @@ import { defineNuxtConfig } from 'nuxt';
 
 // https://v3.nuxtjs.org/api/configuration/nuxt.config
 export default defineNuxtConfig({
-	modules: ['@nuxtjs/tailwindcss', 'nuxt-icons'],
+	modules: ['@nuxtjs/tailwindcss', 'nuxt-icons', 'nuxt-lodash'],
+	ssr: false
 });

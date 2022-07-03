@@ -4,13 +4,16 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "generate": "nuxt generate",
-    "preview": "nuxt preview"
+    "preview": "nuxt preview",
+    "encode": "cd public/videos && bash encode.sh -i Fitness_Model_Loves_Big_Black_Dick.mp4"
   },
   "devDependencies": {
     "@nuxtjs/tailwindcss": "^5.1.2",
-    "nuxt": "3.0.0-rc.4"
+    "nuxt": "3.0.0-rc.4",
+    "nuxt-icons": "^2.0.1",
+    "nuxt-lodash": "^2.2.0"
   },
   "dependencies": {
-    "nuxt-icons": "^2.0.1"
+    "dashjs": "^4.4.0"
   }
 }
