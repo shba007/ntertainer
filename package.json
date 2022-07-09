@@ -5,15 +5,15 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "encode": "cd public/videos && bash encode.sh -i Fitness_Model_Loves_Big_Black_Dick.mp4"
+    "encode": "cd public/media && bash encode.sh -i '_Erotica/Brazzers - The Ass On Adriana.mp4' -o Erotica/26-1/1/manifest.mpd"
   },
   "devDependencies": {
-    "@nuxtjs/tailwindcss": "^5.1.2",
-    "nuxt": "3.0.0-rc.4",
-    "nuxt-icons": "^2.0.1",
-    "nuxt-lodash": "^2.2.0"
-  },
-  "dependencies": {
-    "dashjs": "^4.4.0"
+    "@nuxt/content": "^2.0.1",
+    "@nuxtjs/tailwindcss": "^5.1.3",
+    "@vueuse/core": "^8.9.1",
+    "@vueuse/nuxt": "^8.9.1",
+    "dashjs": "^4.4.0",
+    "nuxt": "^3.0.0-rc.4",
+    "nuxt-icons": "^2.0.1"
   }
 }

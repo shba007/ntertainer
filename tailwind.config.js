@@ -2,15 +2,19 @@
 const defaultTheme = require('tailwindcss/defaultTheme')
 
 module.exports = {
-  content: [],
-  theme: {
-    extend: {
-      fontFamily: {
-        'head': ['League Spartan', ...defaultTheme.fontFamily.sans],
-        'body': ['Poppins', ...defaultTheme.fontFamily.sans],
-        'mono': ['Crash Numbering', ...defaultTheme.fontFamily.mono]
-      }
-    },
-  },
-  plugins: [],
+	content: [],
+	theme: {
+		extend: {
+			fontFamily: {
+				'head': ['League Spartan', ...defaultTheme.fontFamily.sans],
+				'body': ['Poppins', ...defaultTheme.fontFamily.sans],
+				'mono': ['CrashNumberingSerif', ...defaultTheme.fontFamily.mono]
+			},
+			screens: {
+				'mobile': { 'raw': '(pointer:coarse)' },
+				'pc': { 'raw': '(pointer:fine)' },
+			}
+		},
+	},
+	plugins: [],
 }

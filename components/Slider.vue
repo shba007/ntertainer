@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { clamp } from 'lodash';
-import { PropType } from 'vue';
+import { PropType } from "vue";
 
 const props = defineProps({
 	min: { type: Number, default: 0 },
@@ -8,7 +7,7 @@ const props = defineProps({
 	tracks: { type: Array as PropType<Array<{ value: number, color: string }>>, required: true },
 	disabled: { type: Boolean, default: false }
 })
-const emits = defineEmits(['trackUpdate'])
+const emits = defineEmits<{ (event: "update:tracks", time: number): void }>()
 
 const bar = ref<HTMLDivElement>(null)
 const thumb = ref<HTMLDivElement>(null)
@@ -19,7 +18,7 @@ const isDrag = ref<Boolean>(null)
 const deltas = computed(() => {
 	const deltas = []
 	for (const track of props.tracks) {
-		let delta = props.max !== 0 ? clamp(track.value / props.max, 0, 1) : 0
+		let delta = props.max !== 0 ? useClamp(track.value / props.max, 0, 1).value : 0
 		deltas.push(delta)
 	}
 	return deltas
@@ -49,14 +48,14 @@ function calculateXPosition(event: any): void {
 	let relativeX = 0
 	let { left: elementOffsetX } = bar.value.getBoundingClientRect()
 
-	if (event.type === 'mousemove' || event.type === 'mouseup') {
-		relativeX = useClamp(event.clientX - elementOffsetX, 0, barWidth.value)
-	} else if (event.type === 'touchmove' || event.type === 'touchend') {
-		relativeX = useClamp(event.touches[0].clientX - elementOffsetX, 0, barWidth.value)
+	if (event.type === "mousemove" || event.type === "mouseup") {
+		relativeX = useClamp(event.clientX - elementOffsetX, 0, barWidth.value).value
+	} else if (event.type === "touchmove" || event.type === "touchend") {
+		relativeX = useClamp(event.touches[0].clientX - elementOffsetX, 0, barWidth.value).value
 	}
 
-	const deltas = relativeX / barWidth.value
-	emits('trackUpdate', interpolate(deltas, props.min, props.max))
+	const delta = relativeX / barWidth.value
+	emits("update:tracks", interpolate(delta, props.min, props.max))
 }
 
 function onDeviceDown() {
@@ -68,7 +67,7 @@ function onDeviceMove(event) {
 
 	if (!isDrag.value) {
 		isDrag.value = true
-		console.log('Drag Started');
+		console.debug("Drag Started");
 	}
 
 	calculateXPosition(event)
@@ -76,30 +75,22 @@ function onDeviceMove(event) {
 function onDeviceUp(event) {
 	if (isDrag.value !== null) {
 		if (!isDrag.value) {
-			console.log('Clicked');
+			console.debug("Clicked");
 			calculateXPosition(event)
 		} else {
-			console.log('Drag Ended');
+			console.debug("Drag Ended");
 		}
 	}
 	isDrag.value = null
 }
 
+useEventListener(window, "resize", useThrottleFn(calculateDimensions, 200))
+useEventListener(window, "mousemove", useThrottleFn(onDeviceMove, 100))
+useEventListener(window, "touchmove", useThrottleFn(onDeviceMove, 100))
+useEventListener(window, "mouseup", onDeviceUp)
+
 onMounted(() => {
 	calculateDimensions()
-	window.addEventListener('resize', useThrottle(calculateDimensions, 200))
-	window.addEventListener('mousemove', useThrottle(onDeviceMove, 100))
-	window.addEventListener('touchmove', useThrottle(onDeviceMove, 100))
-	window.addEventListener('mouseup', onDeviceUp)
-	window.addEventListener('touchend', onDeviceUp)
-})
-
-onBeforeUnmount(() => {
-	window.removeEventListener('resize', useThrottle(calculateDimensions, 200))
-	window.removeEventListener('mousemove', useThrottle(onDeviceMove, 100))
-	window.removeEventListener('touchmove', useThrottle(onDeviceMove, 100))
-	window.addEventListener('mouseup', onDeviceUp)
-	window.addEventListener('touchend', onDeviceUp)
 })
 </script>
 
@@ -108,11 +99,11 @@ onBeforeUnmount(() => {
 		@touchstart="onDeviceDown">
 		<div ref="bar" class="relative w-full h-1 bg-slate-200/40 rounded-full overflow-hidden">
 			<div v-for="(track, id) in tracks"
-				class="absolute left-0 right-0 top-0 bottom-0 origin-[left_center] rounded-full" :class="track.color"
-				:style="trackStyles[id]" />
+				class="absolute left-0 right-0 top-0 bottom-0 origin-[left_center] rounded-full transition-transform duration-200 ease-out"
+				:class="track.color" :style="trackStyles[id]" />
 		</div>
-		<div ref="thumb" class="absolute left-0 w-4 h-4 rounded-full shadow" :class="tracks[0].color"
-			:style="thumbStyle" />
+		<div ref="thumb" class="absolute left-0 w-4 h-4 rounded-full shadow transition-transform duration-200 ease-out"
+			:class="tracks[0].color" :style="thumbStyle" />
 	</div>
 </template>
 

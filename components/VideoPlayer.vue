@@ -1,218 +1,308 @@
 <script setup lang="ts">
-import { MediaPlayer, MediaPlayerSettingClass, PlaybackTimeUpdatedEvent } from "dashjs";
+import { MediaPlayer, MediaPlayerSettingClass, PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from 'dashjs';
+
+const props = defineProps({
+	title: { type: String, required: true }, // Property Binding
+	poster: { type: String, required: true }, // Property Binding
+	src: { type: String, required: true }, // Property Binding
+	autoplay: { type: Boolean, default: false }, // Property Binding
+	buffer: {}, // Two-way Binding
+	playback: {}, // Two-way Binding
+	playbackRate: {}, // Two-way Binding
+	seek: {} // Two-way Binding
+})
+
+watch(() => props.buffer, (value: "load" | "empty") => {
+	console.debug("Parent Buffer", value);
+	changeBuffer(value === "load", false)
+})
+
+watch(() => props.playback, (value: "play" | "pause") => {
+	console.debug("Parent Playback", value);
+	togglePlay(value === "play", false)
+})
+
+watch(() => props.playbackRate, (value: number) => {
+	console.debug("Parent PlaybackRate", value);
+	changePlaybackRate(value, false)
+})
+
+watch(() => props.seek, (value: number) => {
+	console.debug("Parent Seek", value);
+	changeSeek(value, false)
+})
+
+const emits = defineEmits<{
+	(event: "update:overlay", state: "show" | "hide"): void // Event Binding
+	(event: "update:buffer", state: "load" | "empty", time: number): void // Two-way Binding
+	(event: "update:playback", state: "play" | "pause", time: number): void // Two-way Binding
+	(event: "update:playbackRate", rate: number, time: number): void // Two-way Binding
+	(event: "update:seek", time: number): void // Two-way Binding
+}>()
 
 const container = ref<HTMLElement>(null)
 const video = ref<HTMLVideoElement>(null)
-
-const media = "Big_Buck_Bunny"// "Fitness_Model_Loves_Big_Black_Dick" // "Mia_Khalifa_is_Back_and_Hotter_Than_Ever"
-const videoURL = ref(`/videos/${media}/manifest.mpd`)
-const posterURL = ref(`posters/${media}.webp`)
-const title = ref(media.replaceAll("_", " "))
-const autoplay = ref(false)
-
-const player = ref(MediaPlayer().create())
+const player = reactive(MediaPlayer().create())
 const settings = ref<MediaPlayerSettingClass>(null)
 
-const isPlaying = ref(false)
-const isLoading = ref(false)
-const isFullscreen = ref(false)
-const isAuto = ref(true)
-const isContentFit = ref(true)
-const dropdown = ref<string>(null)
-const resolutions = ref<string[]>(['Auto'])
+const isBuffering = ref(false)
 const bufferTime = ref(0)
-const currentTime = ref(0)
+
+const isPlaying = ref(false)
+const seekTime = ref(0)
+
+const playbackRates = ref([0.5, 0.75, 1, 1.25, 2])
+const playbackRateIndex = ref(2)
+
+const isAuto = ref(true)
+const qualities = ref<string[]>([])
+const qualityIndex = ref(0)
+
+const isMuted = ref(false)
+const volume = ref(70)
+
 const duration = ref(0)
-const quality = ref(0)
-const currentPlaybackRate = ref(1)
+const dropdown = ref<string>(null)
+
+const {
+	isSupported: isFullscreenSupported,
+	isFullscreen,
+	enter: enterFullscreen,
+	exit: exitFullScreen
+} = useFullscreen(container)
+const {
+	isSupported: isScreenOrientationSupported,
+	lockOrientation,
+	unlockOrientation
+} = useScreenOrientation()
+const { idle, lastActive } = useIdle(5000)
 
 const tracks = computed(() => {
 	return [
-		{ value: currentTime.value, color: 'bg-blue-400' },
-		{ value: currentTime.value + bufferTime.value, color: 'bg-slate-200/60' }
+		{ value: seekTime.value, color: "bg-blue-400" },
+		{ value: seekTime.value + bufferTime.value, color: "bg-slate-200/60" }
 	]
 })
+const isOverlay = computed(() => {
+	return isPlaying.value ? !idle.value : true
+})
 
-function timeFormat(duration) {
+function formatTime(duration: number) {
 	duration = Math.max(duration, 0);
 
 	const h = Math.floor(duration / 3600);
 	const m = Math.floor(duration % 3600 / 60);
 	const s = Math.floor(duration % 3600 % 60);
-	return `${h === 0 ? '' : ((h < 10 ? '0' : '') + h + ':')}${h !== 0 || m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
-}
-function calculateDimensions() {
-	isContentFit.value = container.value.offsetWidth * 2 < container.value.offsetHeight * 3
+	return `${h === 0 ? "" : ((h < 10 ? "0" : "") + h + ":")}${h !== 0 || m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
-function togglePlay() {
-	if (isPlaying.value) {
-		console.log('Video is Paused');
-		player.value.pause()
+function changeBuffer(state: boolean, sync = true) {
+	// TODO:Change Buffering
+}
+
+function togglePlay(isPaused = player.isPaused(), sync = true) {
+	console.debug(`Video is ${isPaused ? "Played" : "Paused"}`);
+	isPlaying.value = isPaused
+	isPaused ? player.play() : player.pause()
+	if (sync)
+		emits("update:playback", isPaused ? "play" : "pause", seekTime.value)
+
+	lastActive.value = 0
+	toggleDropdown(null)
+}
+function changeSeek(time: number, sync = true) {
+	seekTime.value = time
+	player.seek(time)
+	if (sync)
+		emits("update:seek", seekTime.value)
+
+	lastActive.value = 0
+	toggleDropdown(null)
+}
+
+function changePlaybackRate(rateIndex: number, sync = true) {
+	playbackRateIndex.value = useClamp(rateIndex, 0, playbackRates.value.length - 1).value
+	player.setPlaybackRate(playbackRates.value[playbackRateIndex.value])
+	if (sync)
+		emits("update:playbackRate", playbackRates.value[playbackRateIndex.value], seekTime.value)
+
+	toggleDropdown(null)
+}
+
+function changeQuality(currentResolutionIndex: number) {
+	isAuto.value = currentResolutionIndex === -1
+
+	settings.value.streaming.abr.autoSwitchBitrate.video = isAuto.value
+	player.updateSettings(settings.value)
+
+	if (!isAuto.value) {
+		player.setQualityFor("video", currentResolutionIndex, true)
+	}
+
+	toggleDropdown(null)
+}
+
+function toggleVolume(isUnmuted = !player.isMuted()) {
+	console.debug(`Video is Muted ${isUnmuted}`);
+	isMuted.value = isUnmuted
+	player.setMute(isMuted.value)
+
+	if (!volume.value)
+		changeVolume(70)
+
+	toggleDropdown(null)
+}
+function changeVolume(value: number) {
+	volume.value = useClamp(value, 0, 100).value
+	player.setVolume(volume.value / 100)
+
+	if (!volume.value)
+		toggleVolume(true)
+
+	toggleDropdown(null)
+}
+
+async function toggleFullscreen() {
+	if (!isFullscreenSupported)
+		return
+
+	if (isFullscreen.value) {
+		await exitFullScreen()
+		if (isScreenOrientationSupported)
+			unlockOrientation()
 	} else {
-		console.log('Video is Played');
-		player.value.play()
+		await enterFullscreen()
+		if (isScreenOrientationSupported)
+			await lockOrientation("landscape")
 	}
 }
+
 function toggleDropdown(type: string | null) {
 	dropdown.value = dropdown.value !== type ? type : null
 }
-async function toggleFullscreen() {
-	if (isFullscreen.value) {
-		document.exitFullscreen()
-		screen.orientation.unlock()
-	} else {
-		try {
-			await container.value.requestFullscreen()
-			await screen.orientation.lock('landscape')
-		} catch (error) {
-			console.log(error);
-		}
-	}
 
-	isFullscreen.value = !isFullscreen.value
-}
-
-function changeSeek(time: number) {
-	currentTime.value = time
-	player.value.seek(time)
-
-	dropdown.value = null
-}
-function changeQuality(resolution: string) {
-	const config = resolutions.value.findIndex((r) => r === resolution)
-
-	isAuto.value = config === 0
-	settings.value.streaming.abr.autoSwitchBitrate.video = isAuto.value
-	player.value.updateSettings(settings.value)
-
-	if (!isAuto.value) {
-		quality.value = config - 1
-		player.value.setQualityFor('video', quality.value, true)
-	}
-
-	dropdown.value = null
-}
-function changePlaybackRate(rate: number) {
-	currentPlaybackRate.value = rate
-	player.value.setPlaybackRate(rate)
-
-	dropdown.value = null
-}
-
+// Input Devices Hooks
 function onKeyboardControl(event: KeyboardEvent) {
-	if (event.key === " ")
-		togglePlay()
-	else if (event.key === "ArrowLeft")
-		changeSeek(currentTime.value - 5)
-	else if (event.key === "ArrowRight")
-		changeSeek(currentTime.value + 5)
+	switch (event.code) {
+		case "Space":
+			togglePlay()
+			break;
+		case "ArrowLeft":
+			changeSeek(seekTime.value - 5)
+			break;
+		case "ArrowRight":
+			changeSeek(seekTime.value + 5)
+			break;
+		case "ArrowUp":
+			changeVolume(volume.value + 5)
+			break;
+		case "ArrowDown":
+			changeVolume(volume.value - 5)
+			break;
+		case "NumpadAdd":
+			changePlaybackRate(playbackRateIndex.value + 1)
+			break;
+		case "NumpadSubtract":
+			changePlaybackRate(playbackRateIndex.value - 1)
+			break;
+		default:
+			break;
+	}
 }
 
 // Player Life Cycle Hooks
 function onPlayerInit() {
-	console.log("Steam Initialized");
+	console.debug("Steam Initialized");
 
-	duration.value = player.value.duration()
-	settings.value = player.value.getSettings()
+	duration.value = player.duration()
+	settings.value = player.getSettings()
 
-	const audioInfo = player.value.getBitrateInfoListFor('audio')
+	const audioInfo = player.getBitrateInfoListFor("audio")
 	console.table(audioInfo, ["mediaType", "bitrate"]);
 
-	const videoInfo = player.value.getBitrateInfoListFor('video')
+	const videoInfo = player.getBitrateInfoListFor("video")
 	console.table(videoInfo, ["mediaType", "width", "height", "bitrate"]);
 
 	for (const info of videoInfo) {
-		resolutions.value.push(`${info.height.toString()}p`)
+		qualities.value.push(`${info.height.toString()}p`)
 	}
 }
 
 function onBufferLoaded() {
-	console.log("Video Buffer Loaded");
-	isLoading.value = false
+	console.debug("Video Buffer Loaded");
+	isBuffering.value = false
+	emits("update:buffer", "load", seekTime.value)
 }
 
 function onBufferEmptied() {
-	console.log("Video Buffer Empty");
-	isLoading.value = true
+	console.debug("Video Buffer Empty");
+	isBuffering.value = true
 	bufferTime.value = 0
-}
-
-function onPlaybackStarted() {
-	console.log("Video Playback Started");
-	isPlaying.value = true
-}
-
-function onPlaybackPaused() {
-	console.log("Video Playback Paused");
-	isPlaying.value = false
+	emits("update:buffer", "empty", seekTime.value)
 }
 
 function onPlaybackUpdate(event: PlaybackTimeUpdatedEvent) {
-	currentTime.value = event.time
-	bufferTime.value = player.value.getBufferLength('video')
+	seekTime.value = event.time
+	bufferTime.value = player.getBufferLength("video")
 	bufferTime.value = !isNaN(bufferTime.value) ? bufferTime.value : 0
-	quality.value = player.value.getQualityFor('video')
-	player.value.setPlaybackRate(currentPlaybackRate.value)
 }
 
+function onQualityChange(event: QualityChangeRequestedEvent) {
+	if (event.mediaType === 'video') {
+		qualityIndex.value = event.newQuality
+		changePlaybackRate(playbackRateIndex.value, false)
+	}
+}
+
+useEventListener(window, "keydown", onKeyboardControl)
+
 onMounted(() => {
-	player.value.initialize(video.value, videoURL.value, autoplay.value);
+	player.initialize(video.value, props.src, props.autoplay);
 
-	player.value.on("streamInitialized", onPlayerInit)
-	player.value.on("bufferLoaded", onBufferLoaded)
-	player.value.on("bufferStalled", onBufferEmptied)
-	player.value.on("playbackStarted", onPlaybackStarted)
-	player.value.on("playbackPaused", onPlaybackPaused)
-	player.value.on("playbackTimeUpdated", onPlaybackUpdate)
-
-	calculateDimensions()
-	window.addEventListener('resize', useThrottle(calculateDimensions, 200))
-	window.addEventListener("keyup", onKeyboardControl)
+	player.on("streamInitialized", onPlayerInit)
+	player.on("bufferLoaded", onBufferLoaded)
+	player.on("bufferStalled", onBufferEmptied)
+	player.on("playbackTimeUpdated", onPlaybackUpdate)
+	player.on("qualityChangeRequested", onQualityChange)
 })
 
 onBeforeUnmount(() => {
-	player.value.off("streamInitialized", onPlayerInit)
-	player.value.off("bufferLoaded", onBufferLoaded)
-	player.value.off("bufferStalled", onBufferEmptied)
-	player.value.off("playbackStarted", onPlaybackStarted)
-	player.value.off("playbackPaused", onPlaybackPaused)
-	player.value.off("playbackTimeUpdated", onPlaybackUpdate)
-
-	window.removeEventListener("keyup", onKeyboardControl)
+	player.off("streamInitialized", onPlayerInit)
+	player.off("bufferLoaded", onBufferLoaded)
+	player.off("bufferStalled", onBufferEmptied)
+	player.off("playbackTimeUpdated", onPlaybackUpdate)
+	player.off("qualityChangeRendered", onQualityChange)
 })
 </script>
 
 <template>
 	<main ref="container" class="relative w-full h-full bg-black">
-		<video ref="video" :poster="posterURL" :src="videoURL" class="absolute w-full h-full"
-			:class="{ 'object-cover': !isContentFit }">
-		</video>
-		<section
+		<video ref="video" :poster="poster" :src="src" class="absolute w-full h-full object-cover pc:object-contain" />
+		<div v-if="isOverlay" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
+		<div v-if="isBuffering" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
+			<NuxtIcon name="loader" class="text-7xl animate-spin" />
+		</div>
+		<section v-show="isOverlay"
 			class="relative grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-6 py-3 w-full h-full">
-			<div class="row-start-1 col-span-2 justify-start self-start text-xl font-head">
+			<div class="row-start-1 col-start-1 col-span-2 justify-start self-start text-xl font-head">
 				{{ title }}
 			</div>
 			<div class="row-start-1 col-start-3 justify-end self-start flex items-center gap-6">
 				<NuxtIcon name="cast" class="text-[2rem] cursor-pointer" />
 			</div>
 			<div class="row-start-2 col-start-2 justify-center self-center flex items-center gap-8 -translate-y-5">
-				<template v-if="isLoading">
-					<NuxtIcon name="loader" class="animate-spin text-7xl m-0" />
-				</template>
-				<template v-else>
-					<NuxtIcon name="prev" class="text-[2rem] cursor-pointer" />
-					<NuxtIcon :name="isPlaying ? 'pause' : 'play'" @click="togglePlay"
-						class="ml-2 text-5xl  cursor-pointer" />
-					<NuxtIcon name="next" class="text-[2rem] cursor-pointer" />
-				</template>
+				<VideoControls v-if="!isBuffering" :playback="isPlaying" @update:playback="togglePlay"
+					class="pc:hidden" />
 			</div>
-			<Slider :min="0" :max="duration" :tracks="tracks" @trackUpdate="changeSeek"
+			<Slider :max="duration" :tracks="tracks" @update:tracks="changeSeek"
 				class="row-start-2 col-start-1 col-span-3 self-end" />
 			<div class="row-start-3 col-start-1 col-span-2 justify-start self-end flex items-center gap-4">
-				<NuxtIcon name="volume" class="text-[2rem] cursor-pointer" />
-				<Slider :tracks="[{ value: 0.5, color: 'bg-slate-200' }]" class="w-24" />
-				<span class="font-mono">{{ timeFormat(currentTime) }} / {{ timeFormat(duration) }}</span>
+				<VideoControls :playback="isPlaying" @update:playback="togglePlay" class="mobile:hidden" />
+				<NuxtIcon :name="isMuted ? 'volume-muted' : 'volume-full'" class="text-[2rem] cursor-pointer"
+					@click="toggleVolume()" />
+				<Slider :max="100" :tracks="[{ value: Number(!isMuted) * volume, color: 'bg-slate-200' }]"
+					@update:tracks="changeVolume" class="w-24" />
+				<span class="font-mono">{{ formatTime(seekTime) }} / {{ formatTime(duration) }}</span>
 			</div>
 			<div class="relative row-start-3 col-start-3 justify-end self-end flex items-center gap-6">
 				<NuxtIcon name="subtitle" class="text-[2rem] cursor-pointer" />
@@ -222,16 +312,16 @@ onBeforeUnmount(() => {
 					class="text-[2rem] cursor-pointer" />
 			</div>
 			<dialog :open="dropdown !== null"
-				class="top-1/2 -translate-y-[calc(50%+1.25rem)] px-0 py-1 w-56 bg-slate-200 rounded-md shadow-lg">
+				class="pc:left-auto pc:right-6 top-1/2 mobile:top-1/2 pc:top-auto pc:bottom-0 -translate-y-[calc(50%+1.25rem)] pc:-translate-y-[4.5rem] px-0 py-1 w-56 bg-slate-200 rounded-md shadow-lg">
 				<ul v-if="dropdown === 'video'" class="drop-down flex flex-col">
-					<li>
+					<li @click="toggleDropdown(null)">
 						<div>
 							<NuxtIcon name="keyframes" class="text-2xl" />
 							<span>FPS</span>
 						</div>
 						<span>60 fps</span>
 					</li>
-					<li>
+					<li @click="toggleDropdown(null)">
 						<div>
 							<NuxtIcon name="mountain" class="text-2xl" />
 							<span>Color</span>
@@ -243,27 +333,27 @@ onBeforeUnmount(() => {
 							<NuxtIcon name="speed" class="text-2xl" />
 							<span>Playback</span>
 						</div>
-						<span>{{ currentPlaybackRate }}x</span>
+						<span>{{ playbackRates[playbackRateIndex] }}x</span>
 					</li>
 					<li @click="toggleDropdown('video-resolution')">
 						<div>
 							<NuxtIcon name="downscale" class="text-2xl" />
 							<span>Resolution</span>
 						</div>
-						<span>{{ isAuto ? 'Auto' : '' }} {{ resolutions[quality + 1] }}</span>
+						<span>{{ isAuto ? 'Auto' : '' }} {{ qualities[qualityIndex] }}</span>
 					</li>
 				</ul>
 				<ul v-else-if="dropdown === 'video-playback'" class="drop-down flex-col">
-					<li v-for="playbackRate in [0.5, 0.75, 1, 1.25, 2]" :key="playbackRate"
-						:class="{ 'highlight': playbackRate === currentPlaybackRate }"
-						@click="changePlaybackRate(playbackRate)">
+					<li v-for="(playbackRate, currentPlaybackRateIndex) in playbackRates"
+						:class="{ 'highlight': currentPlaybackRateIndex === playbackRateIndex }"
+						@click="changePlaybackRate(currentPlaybackRateIndex)">
 						{{ playbackRate }}
 					</li>
 				</ul>
 				<ul v-else-if="dropdown === 'video-resolution'" class="drop-down flex flex-col-reverse">
-					<li v-for="resolution in resolutions" :key="resolution"
-						:class="{ 'highlight': resolution === (isAuto ? 'Auto' : resolutions[quality + 1]) }"
-						@click="changeQuality(resolution)">
+					<li v-for="(resolution, currentResolutionIndex) in ['Auto', ...qualities]"
+						:class="{ 'highlight': isAuto ? resolution === 'Auto' : currentResolutionIndex - 1 === qualityIndex }"
+						@click="changeQuality(currentResolutionIndex - 1)">
 						{{ resolution }}
 					</li>
 				</ul>
@@ -273,8 +363,12 @@ onBeforeUnmount(() => {
 </template>
 
 <style>
-section {
+main {
 	color: white;
+}
+
+main>div.backdrop-gradient {
+	--tw-gradient-stops: rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0) 80%, rgba(0, 0, 0, 0.3) 100%;
 }
 
 dialog>.drop-down>li {
