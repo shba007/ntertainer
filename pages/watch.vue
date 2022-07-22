@@ -2,10 +2,11 @@
 const { $playerSocket } = useNuxtApp();
 const config = useRuntimeConfig();
 
-const mediaMeta = ref({ type: "erotica", id: "111-1" })
+// const mediaMeta = ref({ type: "erotica", id: "111-1" })
+const mediaMeta = ref({ type: "movie", id: "7-1" })
 const media = await queryContent(mediaMeta.value.type, mediaMeta.value.id).only(["title"]).findOne()
-const poster = `/media/${mediaMeta.value.type}/${mediaMeta.value.id}/Landscape.jpg`
-const src = `/media/${mediaMeta.value.type}/${mediaMeta.value.id}/1/manifest.mpd`
+const poster = `${config.public.apiURL}/public/${mediaMeta.value.type}/${mediaMeta.value.id}/Landscape.jpg`
+const src = `${config.public.apiURL}/public/${mediaMeta.value.type}/${mediaMeta.value.id}/1/manifest.mpd`
 
 const socket = $playerSocket()
 const container = ref<HTMLElement>(null)
@@ -31,7 +32,7 @@ const {
 const { idle, lastActive } = useIdle(5000)
 const controls = computed(() => playback.value === "play" ? !idle.value : true)
 
-const pinedStream = ref<MediaStream>(null)
+const pinedStream = ref<{ local: boolean, stream: MediaStream }>(null)
 // Player Life Cycle Hooks
 async function onFullscreen() {
 	if (!isFullscreenSupported)
@@ -49,88 +50,92 @@ async function onFullscreen() {
 }
 
 function onBuffer(state: "load" | "empty", time: number) {
-	console.log(`Local Buffer ${state} at ${time}`);
+	console.debug(`Local Buffer ${state} at ${time}`);
 	// TODO: socket.emit("buffer", state, time)
 	buffer.value = state
 	seek.value = time
 }
 function onPlayback(state: "play" | "pause", time: number) {
-	console.log(`Local Playback ${state} at ${time}`);
+	console.debug(`Local Playback ${state} at ${time}`);
 	socket.emit("playback", state, time)
 	playback.value = state
 	seek.value = time
 }
 function onPlaybackRate(rate: number, time: number) {
-	console.log(`Local PlaybackRate ${rate} at ${time}`);
+	console.debug(`Local PlaybackRate ${rate} at ${time}`);
 	socket.emit("playback-rate", rate, time)
 	playbackRate.value = rate
 	seek.value = time
 }
 function onSeek(time: number) {
-	console.log(`Local Seek to ${time}`);
+	console.debug(`Local Seek to ${time}`);
 	socket.emit("seek", time)
 	seek.value = time
 }
 
 // Call Life Cycle Hooks
-function onPinStream(stream: MediaStream) {
-	pinedStream.value = stream
+function onPinStream(local: boolean, stream: MediaStream) {
+	pinedStream.value = { local, stream }
 }
 
 // WebSocket Life Cycle Hooks
 function onSocketConnect() {
-	console.log("WebSocket Connected", socket.id);
-	setTimeout(onSocketInit, 500)
+	console.debug("WebSocket Connected", socket.id);
+	setTimeout(onSocketInit, 2000)
 }
 async function onSocketInit() {
 	const { data: room } = await useFetch<{
 		id: string;
 		call: string;
-		chat: string;
+		chat: {
+			audio: boolean;
+			video: boolean;
+			id: string;
+		}[];
 		player: {
 			buffer: "load" | "empty";
 			playback: "play" | "pause";
 			playbackRate: number;
 			seek: number;
 		}
-	}>(`${config.public.apiURL}/room`)
-	const player = room.value.player
-	console.log(`Global Player Status`, player);
+	}>(`${config.public.apiURL}/room`, { pick: ['player'] })
 
-	// buffer.value = player.buffer
+	const player = room.value.player
+	console.debug(`Global Player Status`, player);
+
+	// TODO: buffer.value = player.buffer
 	playback.value = player.playback
 	playbackRate.value = player.playbackRate
 	seek.value = player.seek
 }
 function onSocketBuffer(id: string, state: "load" | "empty", time: number) {
-	console.log(`By ${id} Global Buffer ${state} at ${time}`);
+	console.debug(`By ${id} Global Buffer ${state} at ${time}`);
 	buffer.value = state
 	seek.value = time
 }
 function onSocketPlayback(id: string, state: "play" | "pause", time: number) {
-	console.log(`By ${id} Global Playback ${state} at ${time}`);
+	console.debug(`By ${id} Global Playback ${state} at ${time}`);
 	playback.value = state
 	seek.value = time
 	lastActive.value = 0
 }
 function onSocketPlaybackRate(id: string, rate: number, time: number) {
-	console.log(`By ${id} Global PlaybackRate ${rate} at ${time}`);
+	console.debug(`By ${id} Global PlaybackRate ${rate} at ${time}`);
 	playbackRate.value = rate
 	seek.value = time
 	lastActive.value = 0
 }
 function onSocketSeek(id: string, time: number) {
-	console.log(`By ${id} Global Seek to ${time}`);
+	console.debug(`By ${id} Global Seek to ${time}`);
 	seek.value = time
 	lastActive.value = 0
 }
 function onSocketDisconnect() {
-	console.log("WebSocket Disconnected");
+	console.debug("WebSocket Disconnected");
 }
 
 onMounted(() => {
 	socket.on("connect", onSocketConnect);
-	// socket.on("init", onSocketInit);
 	socket.on("buffer", onSocketBuffer);
 	socket.on("playback", onSocketPlayback);
 	socket.on("playback-rate", onSocketPlaybackRate);
@@ -140,7 +145,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	socket.off("connect", onSocketConnect);
-	// socket.off("init", onSocketInit);
 	socket.off("buffer", onSocketBuffer);
 	socket.off("playback", onSocketPlayback);
 	socket.off("playback-rate", onSocketPlaybackRate);
@@ -156,7 +160,8 @@ onBeforeUnmount(() => {
 		<div ref="container" class="relative md:h-full aspect-video">
 			<CallBar v-show="controls"
 				class="fixed left-0 top-1/2 invisible landscape:visible -translate-y-[calc(50%+1.25rem)] z-10" />
-			<CallCard v-if="isFullscreen" v-show="controls" :stream="pinedStream"
+			<CallCard v-if="isFullscreen" v-show="controls" :local="pinedStream.local" :audio="true" :video="true"
+				:stream="pinedStream.stream"
 				class="fixed right-2 top-2 md:right-4 md:top-4 invisible landscape:visible z-10" />
 			<ClientOnly placeholder="Loading...">
 				<LazyVideoPlayer :title="media.title" :poster="poster" :src="src" :autoplay="false" :controls="controls"
@@ -165,23 +170,8 @@ onBeforeUnmount(() => {
 					@update:playbackRate="onPlaybackRate" @update:seek="onSeek" />
 			</ClientOnly>
 		</div>
-		<div class="h-2/5 md:h-full overflow-y-scroll">
-			<!-- <CallMenu @update:pinStream="onPinStream" /> -->
+		<div class="h-2/5 md:h-full">
+			<CallMenu @update:pinStream="onPinStream" />
 		</div>
 	</div>
 </template>
-
-<style>
-@import url("https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500&family=League+Spartan:wght@300;400;500&family=Poppins:wght@300;400;500;700&display=swap");
-
-* {
-	@apply font-body;
-	-webkit-tap-highlight-color: transparent;
-
-
-}
-
-.nuxt-icon svg {
-	margin: 0 !important;
-}
-</style>
