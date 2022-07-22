@@ -79,7 +79,16 @@ function formatTime(duration: number) {
 	const h = Math.floor(duration / 3600);
 	const m = Math.floor(duration % 3600 / 60);
 	const s = Math.floor(duration % 3600 % 60);
-	return `${h === 0 ? "" : ((h < 10 ? "0" : "") + h + ":")}${h !== 0 || m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`;
+
+	const hour = h > 0 ? h : ""
+
+	let prefix = h > 0 ? ":" + (m < 10 ? "0" : "") : ""
+	const minute = prefix + m
+
+	prefix = s < 10 ? "0" : ""
+	const second = prefix + s
+
+	return `${hour}${minute}:${second}`
 }
 
 function changeBuffer(state: boolean, sync = true) {
