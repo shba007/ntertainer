@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { MediaPlayer, MediaPlayerSettingClass, PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from 'dashjs';
+import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
+const { $player: player } = useNuxtApp()
 
 const props = defineProps({
 	title: { type: String, required: true }, // Property Binding
 	poster: { type: String, required: true }, // Property Binding
 	src: { type: String, required: true }, // Property Binding
 	autoplay: { type: Boolean, default: false }, // Property Binding
+	controls: { type: Boolean, default: true }, // Property Binding
 	buffer: {}, // Two-way Binding
 	playback: {}, // Two-way Binding
 	playbackRate: {}, // Two-way Binding
@@ -33,7 +35,7 @@ watch(() => props.seek, (value: number) => {
 })
 
 const emits = defineEmits<{
-	(event: "update:overlay", state: "show" | "hide"): void // Event Binding
+	(event: "update:fullscreen"): void // Event Binding
 	(event: "update:buffer", state: "load" | "empty", time: number): void // Two-way Binding
 	(event: "update:playback", state: "play" | "pause", time: number): void // Two-way Binding
 	(event: "update:playbackRate", rate: number, time: number): void // Two-way Binding
@@ -42,8 +44,6 @@ const emits = defineEmits<{
 
 const container = ref<HTMLElement>(null)
 const video = ref<HTMLVideoElement>(null)
-const player = reactive(MediaPlayer().create())
-const settings = ref<MediaPlayerSettingClass>(null)
 
 const isBuffering = ref(false)
 const bufferTime = ref(0)
@@ -64,27 +64,13 @@ const volume = ref(70)
 const duration = ref(0)
 const dropdown = ref<string>(null)
 
-const {
-	isSupported: isFullscreenSupported,
-	isFullscreen,
-	enter: enterFullscreen,
-	exit: exitFullScreen
-} = useFullscreen(container)
-const {
-	isSupported: isScreenOrientationSupported,
-	lockOrientation,
-	unlockOrientation
-} = useScreenOrientation()
-const { idle, lastActive } = useIdle(5000)
+const { isFullscreen } = useFullscreen(container)
 
 const tracks = computed(() => {
 	return [
 		{ value: seekTime.value, color: "bg-blue-400" },
 		{ value: seekTime.value + bufferTime.value, color: "bg-slate-200/60" }
 	]
-})
-const isOverlay = computed(() => {
-	return isPlaying.value ? !idle.value : true
 })
 
 function formatTime(duration: number) {
@@ -107,7 +93,6 @@ function togglePlay(isPaused = player.isPaused(), sync = true) {
 	if (sync)
 		emits("update:playback", isPaused ? "play" : "pause", seekTime.value)
 
-	lastActive.value = 0
 	toggleDropdown(null)
 }
 function changeSeek(time: number, sync = true) {
@@ -116,7 +101,6 @@ function changeSeek(time: number, sync = true) {
 	if (sync)
 		emits("update:seek", seekTime.value)
 
-	lastActive.value = 0
 	toggleDropdown(null)
 }
 
@@ -124,7 +108,7 @@ function changePlaybackRate(rateIndex: number, sync = true) {
 	playbackRateIndex.value = useClamp(rateIndex, 0, playbackRates.value.length - 1).value
 	player.setPlaybackRate(playbackRates.value[playbackRateIndex.value])
 	if (sync)
-		emits("update:playbackRate", playbackRates.value[playbackRateIndex.value], seekTime.value)
+		emits("update:playbackRate", playbackRateIndex.value, seekTime.value)
 
 	toggleDropdown(null)
 }
@@ -132,8 +116,9 @@ function changePlaybackRate(rateIndex: number, sync = true) {
 function changeQuality(currentResolutionIndex: number) {
 	isAuto.value = currentResolutionIndex === -1
 
-	settings.value.streaming.abr.autoSwitchBitrate.video = isAuto.value
-	player.updateSettings(settings.value)
+	const settings = player.getSettings()
+	settings.streaming.abr.autoSwitchBitrate.video = isAuto.value
+	player.updateSettings(settings)
 
 	if (!isAuto.value) {
 		player.setQualityFor("video", currentResolutionIndex, true)
@@ -162,19 +147,8 @@ function changeVolume(value: number) {
 	toggleDropdown(null)
 }
 
-async function toggleFullscreen() {
-	if (!isFullscreenSupported)
-		return
-
-	if (isFullscreen.value) {
-		await exitFullScreen()
-		if (isScreenOrientationSupported)
-			unlockOrientation()
-	} else {
-		await enterFullscreen()
-		if (isScreenOrientationSupported)
-			await lockOrientation("landscape")
-	}
+function toggleFullscreen() {
+	emits("update:fullscreen")
 }
 
 function toggleDropdown(type: string | null) {
@@ -215,7 +189,6 @@ function onPlayerInit() {
 	console.debug("Steam Initialized");
 
 	duration.value = player.duration()
-	settings.value = player.getSettings()
 
 	const audioInfo = player.getBitrateInfoListFor("audio")
 	console.table(audioInfo, ["mediaType", "bitrate"]);
@@ -276,38 +249,42 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<main ref="container" class="relative w-full h-full bg-black">
+	<main ref="container" class="relative w-full h-full rounded-lg bg-black md:overflow-hidden">
 		<video ref="video" :poster="poster" :src="src" class="absolute w-full h-full object-cover pc:object-contain" />
-		<div v-if="isOverlay" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
+		<div v-if="controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
 		<div v-if="isBuffering" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
 			<NuxtIcon name="loader" class="text-7xl animate-spin" />
 		</div>
-		<section v-show="isOverlay"
-			class="relative grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-6 py-3 w-full h-full">
-			<div class="row-start-1 col-start-1 col-span-2 justify-start self-start text-xl font-head">
+		<section v-show="controls"
+			class="relative grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full h-full">
+			<div
+				class="row-start-1 col-start-1 col-span-2 invisible landscape:visible justify-start self-start text-xl font-head">
 				{{ title }}
 			</div>
 			<div class="row-start-1 col-start-3 justify-end self-start flex items-center gap-6">
 				<NuxtIcon name="cast" class="text-[2rem] cursor-pointer" />
 			</div>
-			<div class="row-start-2 col-start-2 justify-center self-center flex items-center gap-8 -translate-y-5">
-				<VideoControls v-if="!isBuffering" :playback="isPlaying" @update:playback="togglePlay"
-					class="pc:hidden" />
+			<div
+				class="row-start-2 col-start-2 justify-center self-center flex pc:invisible items-center gap-8 translate-y-0 landscape:-translate-y-5 ">
+				<VideoControls v-if="!isBuffering" :playback="isPlaying" @update:playback="togglePlay" />
 			</div>
-			<Slider :max="duration" :tracks="tracks" @update:tracks="changeSeek"
-				class="row-start-2 col-start-1 col-span-3 self-end" />
+			<div
+				class="absolute -left-1 -right-1 -bottom-1 landscape:relative row-start-3 landscape:row-start-2 col-start-1 col-span-3 self-end">
+				<Slider :max="duration" :tracks="tracks" @update:tracks="changeSeek" />
+			</div>
 			<div class="row-start-3 col-start-1 col-span-2 justify-start self-end flex items-center gap-4">
-				<VideoControls :playback="isPlaying" @update:playback="togglePlay" class="mobile:hidden" />
-				<NuxtIcon :name="isMuted ? 'volume-muted' : 'volume-full'" class="text-[2rem] cursor-pointer"
-					@click="toggleVolume()" />
+				<VideoControls :playback="isPlaying" @update:playback="togglePlay" class="hidden pc:inline" />
+				<NuxtIcon :name="isMuted ? 'volume-muted' : 'volume-full'"
+					class="hidden landscape:inline text-[2rem] cursor-pointer" @click="toggleVolume()" />
 				<Slider :max="100" :tracks="[{ value: Number(!isMuted) * volume, color: 'bg-slate-200' }]"
-					@update:tracks="changeVolume" class="w-24" />
+					@update:tracks="changeVolume" class="hidden landscape:flex w-24" />
 				<span class="font-mono">{{ formatTime(seekTime) }} / {{ formatTime(duration) }}</span>
 			</div>
-			<div class="relative row-start-3 col-start-3 justify-end self-end flex items-center gap-6">
-				<NuxtIcon name="subtitle" class="text-[2rem] cursor-pointer" />
-				<NuxtIcon name="sound-settings" class="text-[2rem] cursor-pointer" />
-				<NuxtIcon name="video-settings" class="text-[2rem] cursor-pointer" @click="toggleDropdown('video')" />
+			<div class="row-start-3 col-start-3 justify-end self-end flex items-center gap-6">
+				<NuxtIcon name="subtitle" class="invisible landscape:visible text-[2rem] cursor-pointer" />
+				<NuxtIcon name="sound-settings" class="invisible landscape:visible text-[2rem] cursor-pointer" />
+				<NuxtIcon name="video-settings" class="invisible landscape:visible text-[2rem] cursor-pointer"
+					@click="toggleDropdown('video')" />
 				<NuxtIcon :name="isFullscreen ? 'screen-min' : 'screen-max'" @click="toggleFullscreen"
 					class="text-[2rem] cursor-pointer" />
 			</div>

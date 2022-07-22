@@ -13,6 +13,8 @@ module.exports = {
 			screens: {
 				'mobile': { 'raw': '(pointer:coarse)' },
 				'pc': { 'raw': '(pointer:fine)' },
+				'portrait': { 'raw': '(orientation: portrait)' },
+				'landscape': { 'raw': '(orientation: landscape)' },
 			}
 		},
 	},

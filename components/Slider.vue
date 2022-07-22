@@ -88,6 +88,7 @@ useEventListener(window, "resize", useThrottleFn(calculateDimensions, 200))
 useEventListener(window, "mousemove", useThrottleFn(onDeviceMove, 100))
 useEventListener(window, "touchmove", useThrottleFn(onDeviceMove, 100))
 useEventListener(window, "mouseup", onDeviceUp)
+useEventListener(window, "touchend", onDeviceUp)
 
 onMounted(() => {
 	calculateDimensions()
@@ -99,10 +100,10 @@ onMounted(() => {
 		@touchstart="onDeviceDown">
 		<div ref="bar" class="relative w-full h-1 bg-slate-200/40 rounded-full overflow-hidden">
 			<div v-for="(track, id) in tracks"
-				class="absolute left-0 right-0 top-0 bottom-0 origin-[left_center] rounded-full transition-transform duration-200 ease-out"
+				class="absolute left-0 right-0 top-0 bottom-0 origin-[left_center] rounded-full transition-transform duration-100 ease-out"
 				:class="track.color" :style="trackStyles[id]" />
 		</div>
-		<div ref="thumb" class="absolute left-0 w-4 h-4 rounded-full shadow transition-transform duration-200 ease-out"
+		<div ref="thumb" class="absolute left-0 w-4 h-4 rounded-full shadow transition-transform duration-100 ease-out"
 			:class="tracks[0].color" :style="thumbStyle" />
 	</div>
 </template>
