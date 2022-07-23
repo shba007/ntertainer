@@ -1,6 +1,14 @@
 import { defineStore } from 'pinia'
 
-const { audioInputs, videoInputs } = useDevicesList({ requestPermissions: true })
+const { audioInputs, videoInputs } = useDevicesList({
+	requestPermissions: true, constraints: {
+		audio: true,
+		video: {
+			width: { min: 640, ideal: 800, max: 854 },
+			height: { min: 360, ideal: 450, max: 480 }
+		}
+	}
+})
 const { audioDeviceId, videoDeviceId, enabled: streaming, stream } = useUserMedia()
 
 export const useUser = defineStore('user', {

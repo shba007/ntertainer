@@ -2,11 +2,11 @@
 const { $playerSocket } = useNuxtApp();
 const config = useRuntimeConfig();
 
-// const mediaMeta = ref({ type: "erotica", id: "111-1" })
-const mediaMeta = ref({ type: "movie", id: "7-1" })
-const media = await queryContent(mediaMeta.value.type, mediaMeta.value.id).only(["title"]).findOne()
-const poster = `${config.public.apiURL}/public/${mediaMeta.value.type}/${mediaMeta.value.id}/Landscape.jpg`
-const src = `${config.public.apiURL}/public/${mediaMeta.value.type}/${mediaMeta.value.id}/1/manifest.mpd`
+// const mediaMeta = ref({ type: "erotica", id: "111-1", episode: "1" })
+const mediaMeta = reactive({ type: "movie", id: "7-1", episode: "1" })
+const media = await queryContent(mediaMeta.type, mediaMeta.id).only(["title"]).findOne()
+const poster = `${config.public.apiURL}/public/${mediaMeta.type}/${mediaMeta.id}/Landscape.jpg`
+const src = `${config.public.apiURL}/public/${mediaMeta.type}/${mediaMeta.id}/${mediaMeta.episode}/manifest.mpd`
 
 const socket = $playerSocket()
 const container = ref<HTMLElement>(null)
@@ -156,8 +156,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<div class="relative flex flex-col md:flex-row gap-2 px-2 py-4 w-screen h-screen">
-		<div ref="container" class="relative md:h-full aspect-video">
+	<div class="relative flex flex-col md:flex-row gap-2 px-2 py-4">
+		<div ref="container" class="relative w-full md:h-full aspect-video">
 			<CallBar v-show="controls"
 				class="fixed left-0 top-1/2 invisible landscape:visible -translate-y-[calc(50%+1.25rem)] z-10" />
 			<CallCard v-if="isFullscreen" v-show="controls" :local="pinedStream.local" :audio="true" :video="true"
@@ -170,7 +170,7 @@ onBeforeUnmount(() => {
 					@update:playbackRate="onPlaybackRate" @update:seek="onSeek" />
 			</ClientOnly>
 		</div>
-		<div class="h-2/5 md:h-full">
+		<div class="md:min-w-[12rem] md:max-w-[22vw] h-2/5 md:h-full">
 			<CallMenu @update:pinStream="onPinStream" />
 		</div>
 	</div>

@@ -11,8 +11,8 @@ const emits = defineEmits<{ (event: "update:tracks", time: number): void }>()
 
 const bar = ref<HTMLDivElement>(null)
 const thumb = ref<HTMLDivElement>(null)
-const barWidth = ref(0)
-const thumbWidth = ref(0)
+const { left: barLeft, width: barWidth } = useElementBounding(bar)
+const { width: thumbWidth } = useElementBounding(thumb)
 const isDrag = ref<Boolean>(null)
 
 const deltas = computed(() => {
@@ -40,18 +40,13 @@ function interpolate(value: number, lowerLimit = 0, higherLimit = 1) {
 	return value * (higherLimit - lowerLimit) + lowerLimit
 }
 
-function calculateDimensions() {
-	barWidth.value = bar.value.offsetWidth
-	thumbWidth.value = thumb.value.offsetWidth
-}
 function calculateXPosition(event: any): void {
 	let relativeX = 0
-	let { left: elementOffsetX } = bar.value.getBoundingClientRect()
 
 	if (event.type === "mousemove" || event.type === "mouseup") {
-		relativeX = useClamp(event.clientX - elementOffsetX, 0, barWidth.value).value
+		relativeX = useClamp(event.clientX - barLeft.value, 0, barWidth.value).value
 	} else if (event.type === "touchmove" || event.type === "touchend") {
-		relativeX = useClamp(event.touches[0].clientX - elementOffsetX, 0, barWidth.value).value
+		relativeX = useClamp(event.touches[0].clientX - barLeft.value, 0, barWidth.value).value
 	}
 
 	const delta = relativeX / barWidth.value
@@ -81,18 +76,14 @@ function onDeviceUp(event) {
 			console.debug("Drag Ended");
 		}
 	}
+
 	isDrag.value = null
 }
 
-useEventListener(window, "resize", useThrottleFn(calculateDimensions, 200))
 useEventListener(window, "mousemove", useThrottleFn(onDeviceMove, 100))
 useEventListener(window, "touchmove", useThrottleFn(onDeviceMove, 100))
 useEventListener(window, "mouseup", onDeviceUp)
 useEventListener(window, "touchend", onDeviceUp)
-
-onMounted(() => {
-	calculateDimensions()
-})
 </script>
 
 <template>
