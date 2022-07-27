@@ -1,18 +1,33 @@
 <script setup lang="ts">
 import { useUser } from '../../stores/user';
 
-const user = useUser()
 const { $callSocket } = useNuxtApp()
+const user = useUser()
 
 const emits = defineEmits<{
 	(event: "update:pinStream", local: boolean, stream: MediaStream): void
 }>()
 const socket = $callSocket()
 
-const remoteStreams = ref<Map<string, MediaStream>>(new Map())
-const streams = computed(() => [user.stream, ...Array.from(remoteStreams.value, ([id, stream]) => (stream))])
+const { audioInputs, videoInputs } = useDevicesList({
+	requestPermissions: true,
+	constraints: {
+		audio: {
+			echoCancellation: true,
+			noiseSuppression: true
+		},
+		video: {
+			width: { min: 640, ideal: 800, max: 854 },
+			height: { min: 360, ideal: 450, max: 480 }
+		}
+	}
+})
+const { audioDeviceId, videoDeviceId, enabled: streaming, stream: localStream } = useUserMedia()
 
-const pinStreamIndex = ref(0)
+const remoteStreams = ref<Map<string, MediaStream>>(new Map())
+const streams = computed(() => [localStream.value,
+...Array.from(remoteStreams.value, ([id, stream]) => (stream))])
+const isInit = ref(false)
 
 const rtcConfig: RTCConfiguration = {
 	iceServers: [{
@@ -28,12 +43,34 @@ const rtcConfig: RTCConfiguration = {
 const connectionId = ref<string>(null)
 const connection = ref<RTCPeerConnection>(null)
 
-watch(streams, (newStreams) => {
-	emits("update:pinStream", pinStreamIndex.value === 0, newStreams[pinStreamIndex.value])
-})
+function refreshStream() {
+	const currentAudioDeviceId = user.audio ? audioInputs.value[0].deviceId : false
+	const currentVideoDeviceId = user.video ? videoInputs.value[0].deviceId : false
+
+	streaming.value = !!(currentAudioDeviceId || currentVideoDeviceId)
+	console.log("Stream", streaming.value)
+
+	if (streaming.value) {
+		audioDeviceId.value = currentAudioDeviceId
+		videoDeviceId.value = currentVideoDeviceId
+	}
+
+	console.log("Microphone", !!currentAudioDeviceId, "Camera", !!currentVideoDeviceId);
+}
+
+watch(() => user.audio, refreshStream)
+watch(() => user.video, refreshStream)
 
 // WebRTC Life Cycle Hooks
-watch(() => user.stream, async (stream) => {
+watch(localStream, async (stream) => {
+	if (isInit.value) {
+		refreshConnection()
+		return
+	}
+
+	isInit.value = true
+	emits("update:pinStream", true, stream)
+
 	console.log("Get Media");
 	await createOffer()
 });
@@ -42,8 +79,8 @@ function createConnection() {
 	connection.value = new RTCPeerConnection(rtcConfig)
 	console.log("Peer Connection Created");
 
-	if (user.stream) {
-		user.stream.getTracks().forEach(track => {
+	if (localStream.value) {
+		localStream.value.getTracks().forEach(track => {
 			connection.value.addTrack(track)
 		})
 	}
@@ -104,6 +141,23 @@ async function addAnswer(id: string, answer: RTCSessionDescriptionInit) {
 	// console.log("remote", connection.value.remoteDescription);
 }
 
+async function refreshConnection() {
+	if (!localStream.value)
+		return
+
+	const audioTrack = localStream.value.getAudioTracks()[0]
+	const videoTrack = localStream.value.getVideoTracks()[0]
+
+	// console.log("Get Tracks", audioTrack, videoTrack);
+	const senders = connection.value.getSenders()
+		.reduce((a, sender) => ({ ...a, [sender.track.kind]: sender }), {}) as { audio: RTCRtpSender, video: RTCRtpSender }
+
+	if (!!audioTrack)
+		await senders["audio"].replaceTrack(audioTrack)
+	if (!!videoTrack)
+		await senders["video"].replaceTrack(videoTrack)
+}
+
 async function removeConnection(id: string) {
 	console.log("Peer Connection removed");
 	remoteStreams.value.delete(id)
@@ -114,13 +168,8 @@ async function onGetICECandidate(id: string, candidate: RTCIceCandidateInit) {
 	await connection.value.addIceCandidate(candidate)
 }
 
-onMounted(async () => {
-	user.toggleStreaming(true)
-
-	/* setTimeout(() => toggleDevices(true, false), 5000)
-	setTimeout(() => toggleDevices(false, false), 15000)
-	setTimeout(() => toggleDevices(false, true), 25000)
-	setTimeout(() => toggleDevices(true, true), 35000) */
+onMounted(() => {
+	streaming.value = true
 
 	socket.on("offer", createAnswer)
 	socket.on("answer", addAnswer)
@@ -129,7 +178,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-	// user.toggleStreaming(false)
+	// streaming.value = false
 
 	socket.off("call", createAnswer)
 	socket.off("receive", addAnswer)
@@ -137,8 +186,7 @@ onBeforeUnmount(() => {
 	socket.off("remove", removeConnection)
 
 	socket.disconnect()
-	if (connection.value)
-		connection.value.close()
+	connection.value.close()
 })
 </script>
 

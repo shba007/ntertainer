@@ -11,8 +11,9 @@ const emits = defineEmits<{ (event: "update:tracks", time: number): void }>()
 
 const bar = ref<HTMLDivElement>(null)
 const thumb = ref<HTMLDivElement>(null)
-const { left: barLeft, width: barWidth } = useElementBounding(bar)
+const { width: barWidth } = useElementBounding(bar)
 const { width: thumbWidth } = useElementBounding(thumb)
+const { elementX: barRelativeX } = useMouseInElement(bar)
 const isDrag = ref<Boolean>(null)
 
 const deltas = computed(() => {
@@ -40,23 +41,15 @@ function interpolate(value: number, lowerLimit = 0, higherLimit = 1) {
 	return value * (higherLimit - lowerLimit) + lowerLimit
 }
 
-function calculateXPosition(event: any): void {
-	let relativeX = 0
-
-	if (event.type === "mousemove" || event.type === "mouseup") {
-		relativeX = useClamp(event.clientX - barLeft.value, 0, barWidth.value).value
-	} else if (event.type === "touchmove" || event.type === "touchend") {
-		relativeX = useClamp(event.touches[0].clientX - barLeft.value, 0, barWidth.value).value
-	}
-
-	const delta = relativeX / barWidth.value
+function calculateXPosition(): void {
+	const delta = barRelativeX.value / barWidth.value
 	emits("update:tracks", interpolate(delta, props.min, props.max))
 }
 
 function onDeviceDown() {
 	isDrag.value = false
 }
-function onDeviceMove(event) {
+function onDeviceMove() {
 	if (isDrag.value === null)
 		return
 
@@ -65,13 +58,13 @@ function onDeviceMove(event) {
 		console.debug("Drag Started");
 	}
 
-	calculateXPosition(event)
+	calculateXPosition()
 }
-function onDeviceUp(event) {
+function onDeviceUp() {
 	if (isDrag.value !== null) {
 		if (!isDrag.value) {
 			console.debug("Clicked");
-			calculateXPosition(event)
+			calculateXPosition()
 		} else {
 			console.debug("Drag Ended");
 		}
@@ -91,10 +84,11 @@ useEventListener(window, "touchend", onDeviceUp)
 		@touchstart="onDeviceDown">
 		<div ref="bar" class="relative w-full h-1 bg-slate-200/40 rounded-full overflow-hidden">
 			<div v-for="(track, id) in tracks"
-				class="absolute left-0 right-0 top-0 bottom-0 origin-[left_center] rounded-full transition-transform duration-100 ease-out"
+				class="track absolute left-0 right-0 top-0 bottom-0 origin-[left_center] rounded-full transition-transform duration-100 ease-out"
 				:class="track.color" :style="trackStyles[id]" />
 		</div>
-		<div ref="thumb" class="absolute left-0 w-4 h-4 rounded-full shadow transition-transform duration-100 ease-out"
+		<div ref="thumb"
+			class="thumb absolute left-0 w-4 h-4 rounded-full shadow transition-transform duration-100 ease-out"
 			:class="tracks[0].color" :style="thumbStyle" />
 	</div>
 </template>

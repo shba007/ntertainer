@@ -22,8 +22,10 @@ const avatar = ref(`https://avatars.dicebear.com/api/adventurer/${seed}.svg?r=50
 const video = ref<HTMLVideoElement>(null)
 
 watchEffect(() => {
-	if (video.value)
-		video.value.srcObject = (props.stream as MediaStream)
+	if (video.value && props.stream) {
+		const stream = (props.stream as MediaStream)
+		video.value.srcObject = stream
+	}
 })
 </script>
 
