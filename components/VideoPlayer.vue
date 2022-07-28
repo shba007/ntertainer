@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { useClamp } from '@vueuse/math'
 import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
+
 const { $player: player } = useNuxtApp()
 
 const props = defineProps({

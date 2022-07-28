@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PropType } from "vue";
+import { useClamp } from '@vueuse/math'
 
 const props = defineProps({
 	min: { type: Number, default: 0 },
