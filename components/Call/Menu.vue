@@ -48,14 +48,14 @@ function refreshStream() {
 	const currentVideoDeviceId = user.video ? videoInputs.value[0].deviceId : false
 
 	streaming.value = !!(currentAudioDeviceId || currentVideoDeviceId)
-	console.log("Stream", streaming.value)
 
 	if (streaming.value) {
 		audioDeviceId.value = currentAudioDeviceId
 		videoDeviceId.value = currentVideoDeviceId
 	}
 
-	console.log("Microphone", !!currentAudioDeviceId, "Camera", !!currentVideoDeviceId);
+	// console.log("Stream", streaming.value)
+	// console.log("Microphone", !!currentAudioDeviceId, "Camera", !!currentVideoDeviceId);
 }
 
 watch(() => user.audio, refreshStream)

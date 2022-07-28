@@ -3,7 +3,7 @@ const { $playerSocket } = useNuxtApp();
 const config = useRuntimeConfig();
 
 // const mediaMeta = ref({ type: "erotica", id: "111-1", episode: "1" })
-const mediaMeta = reactive({ type: "movie", id: "7-1", episode: "1" })
+const mediaMeta = reactive({ type: "movie", id: "8-1", episode: "1" })
 const media = await queryContent(mediaMeta.type, mediaMeta.id).only(["title"]).findOne()
 const poster = `${config.public.apiURL}/public/${mediaMeta.type}/${mediaMeta.id}/Landscape.jpg`
 const src = `${config.public.apiURL}/public/${mediaMeta.type}/${mediaMeta.id}/${mediaMeta.episode}/manifest.mpd`
