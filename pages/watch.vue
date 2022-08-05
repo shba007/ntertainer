@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Participant } from '../components/Call/Card.vue.js';
+
 const { $playerSocket } = useNuxtApp();
 const config = useRuntimeConfig();
 
@@ -32,7 +34,7 @@ const {
 const { idle, lastActive } = useIdle(5000)
 const controls = computed(() => playback.value === "play" ? !idle.value : true)
 
-const pinedStream = ref<{ local: boolean, stream: MediaStream }>(null)
+const pinedParticipant = ref<Participant>(null)
 // Player Life Cycle Hooks
 async function onFullscreen() {
 	if (!isFullscreenSupported)
@@ -74,8 +76,8 @@ function onSeek(time: number) {
 }
 
 // Call Life Cycle Hooks
-function onPinStream(local: boolean, stream: MediaStream) {
-	pinedStream.value = { local, stream }
+function onPinStream(participant: Participant) {
+	pinedParticipant.value = participant
 }
 
 // WebSocket Life Cycle Hooks
@@ -156,12 +158,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<div class="relative flex flex-col md:flex-row gap-2 px-2 py-4">
+	<div class="flex flex-col md:flex-row gap-2 px-2 py-4 max-h-full">
 		<div ref="container" class="relative w-full md:h-full aspect-video">
 			<CallBar v-show="controls"
 				class="fixed left-0 top-1/2 invisible landscape:visible -translate-y-[calc(50%+1.25rem)] z-10" />
-			<CallCard v-if="isFullscreen" v-show="controls" :local="pinedStream.local" :audio="true" :video="true"
-				:stream="pinedStream.stream"
+			<CallCard v-if="isFullscreen" v-show="controls" :fullscreen="true" :local="pinedParticipant.local"
+				:name="pinedParticipant.name.first" :audio="pinedParticipant.audio" :video="pinedParticipant.video"
+				:stream="pinedParticipant.stream"
 				class="fixed right-2 top-2 md:right-4 md:top-4 invisible landscape:visible z-10" />
 			<ClientOnly placeholder="Loading...">
 				<LazyVideoPlayer :title="media.title" :poster="poster" :src="src" :autoplay="false" :controls="controls"
@@ -170,8 +173,6 @@ onBeforeUnmount(() => {
 					@update:playbackRate="onPlaybackRate" @update:seek="onSeek" />
 			</ClientOnly>
 		</div>
-		<div class="md:min-w-[12rem] md:max-w-[22vw] h-2/5 md:h-full">
-			<CallMenu @update:pinStream="onPinStream" />
-		</div>
+		<CallMenu @update:pinParticipant="onPinStream" />
 	</div>
 </template>

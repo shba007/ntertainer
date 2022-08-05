@@ -198,7 +198,6 @@ function onKeyboardControl(event: KeyboardEvent) {
 // Player Life Cycle Hooks
 function onPlayerInit() {
 	console.debug("Steam Initialized");
-
 	duration.value = player.duration()
 
 	const audioInfo = player.getBitrateInfoListFor("audio")
@@ -307,14 +306,14 @@ onBeforeUnmount(() => {
 							<NuxtIcon name="keyframes" class="text-2xl" />
 							<span>FPS</span>
 						</div>
-						<span>60 fps</span>
+						<span>24 fps</span>
 					</li>
 					<li @click="toggleDropdown(null)">
 						<div>
 							<NuxtIcon name="mountain" class="text-2xl" />
 							<span>Color</span>
 						</div>
-						<span>HDR</span>
+						<span>SDR</span>
 					</li>
 					<li @click="toggleDropdown('video-playback')">
 						<div>

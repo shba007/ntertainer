@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useUser } from '../../stores/user';
+import { Participant } from './Card.vue';
 
 const { $callSocket } = useNuxtApp()
 const user = useUser()
 
 const emits = defineEmits<{
-	(event: "update:pinStream", local: boolean, stream: MediaStream): void
+	(event: "update:pinParticipant", participant: Participant): void
 }>()
 const socket = $callSocket()
 
@@ -14,7 +15,7 @@ const { audioInputs, videoInputs } = useDevicesList({
 	constraints: {
 		audio: {
 			echoCancellation: true,
-			noiseSuppression: true
+			noiseSuppression: true,
 		},
 		video: {
 			width: { min: 640, ideal: 800, max: 854 },
@@ -23,10 +24,26 @@ const { audioInputs, videoInputs } = useDevicesList({
 	}
 })
 const { audioDeviceId, videoDeviceId, enabled: streaming, stream: localStream } = useUserMedia()
-
 const remoteStreams = ref<Map<string, MediaStream>>(new Map())
-const streams = computed(() => [localStream.value,
-...Array.from(remoteStreams.value, ([id, stream]) => (stream))])
+
+const localParticipant = computed(() => ({
+	id: "0",
+	local: true,
+	name: { first: "Participant 1", last: "" },
+	audio: user.audio,
+	video: user.video,
+	stream: localStream.value
+}))
+const remoteParticipants = computed(() => (Array.from(remoteStreams.value, ([id, stream]) => ({
+	id,
+	local: false,
+	name: { first: "Participant 2", last: "" },
+	audio: true,
+	video: true,
+	stream
+}))))
+
+const participants = computed(() => [localParticipant.value, ...remoteParticipants.value])
 const isInit = ref(false)
 
 const rtcConfig: RTCConfiguration = {
@@ -69,7 +86,7 @@ watch(localStream, async (stream) => {
 	}
 
 	isInit.value = true
-	emits("update:pinStream", true, stream)
+	emits("update:pinParticipant", participants.value[0])
 
 	console.log("Get Media");
 	await createOffer()
@@ -191,10 +208,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<ul class="grid grid-cols-2 md:grid-cols-1 gap-2">
-		<li v-for="(stream, index) in streams">
-			<CallCard :local="index === 0" :audio="true" :video="true" :stream="stream" class="shrink-0"
-				@click="emits('update:pinStream', index === 0, stream)" />
+	<ul class="grid grid-cols-2 md:grid-cols-1 gap-2 md:max-w-[22vw] md:min-w-[22vw] h-2/5 md:h-full">
+		<li v-for="(participant, index) in participants">
+			<CallCard :local="participant.local" :name="participant.name.first" :audio="participant.audio"
+				:video="participant.video" :stream="participant.stream" class="shrink-0"
+				@click="emits('update:pinParticipant', participant)" />
 		</li>
 	</ul>
 </template>
