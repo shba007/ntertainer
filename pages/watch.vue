@@ -31,10 +31,9 @@ const {
 	unlockOrientation
 } = useScreenOrientation()
 
-const { idle, lastActive } = useIdle(5000)
-const controls = computed(() => playback.value === "play" ? !idle.value : true)
+const controls = ref<boolean>(null)
+const pinnedParticipant = ref<Participant>(null)
 
-const pinedParticipant = ref<Participant>(null)
 // Player Life Cycle Hooks
 async function onFullscreen() {
 	if (!isFullscreenSupported)
@@ -77,7 +76,7 @@ function onSeek(time: number) {
 
 // Call Life Cycle Hooks
 function onPinStream(participant: Participant) {
-	pinedParticipant.value = participant
+	pinnedParticipant.value = participant
 }
 
 // WebSocket Life Cycle Hooks
@@ -119,18 +118,15 @@ function onSocketPlayback(id: string, state: "play" | "pause", time: number) {
 	console.debug(`By ${id} Global Playback ${state} at ${time}`);
 	playback.value = state
 	seek.value = time
-	lastActive.value = 0
 }
 function onSocketPlaybackRate(id: string, rate: number, time: number) {
 	console.debug(`By ${id} Global PlaybackRate ${rate} at ${time}`);
 	playbackRate.value = rate
 	seek.value = time
-	lastActive.value = 0
 }
 function onSocketSeek(id: string, time: number) {
 	console.debug(`By ${id} Global Seek to ${time}`);
 	seek.value = time
-	lastActive.value = 0
 }
 function onSocketDisconnect() {
 	console.debug("WebSocket Disconnected");
@@ -162,15 +158,15 @@ onBeforeUnmount(() => {
 		<div ref="container" class="relative w-full md:h-full aspect-video">
 			<CallBar v-show="controls"
 				class="fixed left-0 top-1/2 invisible landscape:visible -translate-y-[calc(50%+1.25rem)] z-10" />
-			<CallCard v-if="isFullscreen" v-show="controls" :fullscreen="true" :local="pinedParticipant.local"
-				:name="pinedParticipant.name.first" :audio="pinedParticipant.audio" :video="pinedParticipant.video"
-				:stream="pinedParticipant.stream"
+			<CallCard v-if="isFullscreen" v-show="controls" :fullscreen="true" :local="pinnedParticipant.local"
+				:name="pinnedParticipant.name.first" :audio="pinnedParticipant.audio" :video="pinnedParticipant.video"
+				:stream="pinnedParticipant.stream"
 				class="fixed right-2 top-2 md:right-4 md:top-4 invisible landscape:visible z-10" />
 			<ClientOnly placeholder="Loading...">
-				<LazyVideoPlayer :title="media.title" :poster="poster" :src="src" :autoplay="false" :controls="controls"
-					@update:fullscreen="onFullscreen" :buffer="buffer" :playback="playback" :playbackRate="playbackRate"
-					:seek="seek" @update:buffer="onBuffer" @update:playback="onPlayback"
-					@update:playbackRate="onPlaybackRate" @update:seek="onSeek" />
+				<LazyVideoPlayer :title="media.title" :poster="poster" :src="src" :autoplay="false" :buffer="buffer"
+					:playback="playback" :playbackRate="playbackRate" :seek="seek" @update:fullscreen="onFullscreen"
+					@update:controls="(value) => controls = value" @update:buffer="onBuffer"
+					@update:playback="onPlayback" @update:playbackRate="onPlaybackRate" @update:seek="onSeek" />
 			</ClientOnly>
 		</div>
 		<CallMenu @update:pinParticipant="onPinStream" />

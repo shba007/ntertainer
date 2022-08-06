@@ -88,13 +88,13 @@ watch(localStream, async (stream) => {
 	isInit.value = true
 	emits("update:pinParticipant", participants.value[0])
 
-	console.log("Get Media");
+	// console.log("Got Media");
 	await createOffer()
 });
 
 function createConnection() {
 	connection.value = new RTCPeerConnection(rtcConfig)
-	console.log("Peer Connection Created");
+	console.debug("Peer Connection Created");
 
 	if (localStream.value) {
 		localStream.value.getTracks().forEach(track => {
@@ -104,13 +104,13 @@ function createConnection() {
 
 	connection.value.onicecandidate = (event) => {
 		if (event.candidate) {
-			console.log("New ICE Candidate");
+			console.debug("New ICE Candidate");
 			socket.emit("candidate", event.candidate)
 		}
 	}
 
 	connection.value.ontrack = (event) => {
-		console.log("New Track added", event.track);
+		console.debug("New Track added", event.track);
 		const remoteStream = remoteStreams.value.get(connectionId.value)
 		remoteStream.addTrack(event.track)
 	}
@@ -121,7 +121,7 @@ async function createOffer() {
 
 	const offer = await connection.value.createOffer()
 	await connection.value.setLocalDescription(offer)
-	console.log("Offer Created:", offer);
+	console.debug("Offer Created:", offer);
 
 	// console.log("local", connection.value.localDescription);
 	// console.log("remote", connection.value.remoteDescription);
@@ -135,11 +135,11 @@ async function createAnswer(id: string, offer: RTCSessionDescriptionInit) {
 	createConnection()
 	remoteStreams.value.set(id, new MediaStream())
 	await connection.value.setRemoteDescription(offer)
-	console.log("Offer Set:", offer);
+	console.debug("Offer Set:", offer);
 
 	const answer = await connection.value.createAnswer()
 	await connection.value.setLocalDescription(answer)
-	console.log("Answer Created:", answer);
+	console.debug("Answer Created:", answer);
 
 	// console.log("local", connection.value.localDescription);
 	// console.log("remote", connection.value.remoteDescription);
@@ -152,7 +152,7 @@ async function addAnswer(id: string, answer: RTCSessionDescriptionInit) {
 
 	remoteStreams.value.set(id, new MediaStream())
 	await connection.value.setRemoteDescription(answer)
-	console.log("Answer Set:", answer);
+	console.debug("Answer Set:", answer);
 
 	// console.log("local", connection.value.localDescription);
 	// console.log("remote", connection.value.remoteDescription);
@@ -176,12 +176,12 @@ async function refreshConnection() {
 }
 
 async function removeConnection(id: string) {
-	console.log("Peer Connection removed");
+	console.debug("Peer Connection removed");
 	remoteStreams.value.delete(id)
 }
 
 async function onGetICECandidate(id: string, candidate: RTCIceCandidateInit) {
-	console.log("On Receive new Candidate");
+	console.debug("On Receive new Candidate");
 	await connection.value.addIceCandidate(candidate)
 }
 

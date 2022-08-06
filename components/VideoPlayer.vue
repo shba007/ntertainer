@@ -9,7 +9,6 @@ const props = defineProps({
 	poster: { type: String, required: true }, // Property Binding
 	src: { type: String, required: true }, // Property Binding
 	autoplay: { type: Boolean, default: false }, // Property Binding
-	controls: { type: Boolean, default: true }, // Property Binding
 	buffer: {}, // Two-way Binding
 	playback: {}, // Two-way Binding
 	playbackRate: {}, // Two-way Binding
@@ -38,6 +37,7 @@ watch(() => props.seek, (value: number) => {
 
 const emits = defineEmits<{
 	(event: "update:fullscreen"): void // Event Binding
+	(event: "update:controls", state: boolean): void // Event Binding
 	(event: "update:buffer", state: "load" | "empty", time: number): void // Two-way Binding
 	(event: "update:playback", state: "play" | "pause", time: number): void // Two-way Binding
 	(event: "update:playbackRate", rate: number, time: number): void // Two-way Binding
@@ -67,6 +67,15 @@ const duration = ref(0)
 const dropdown = ref<string>(null)
 
 const { isFullscreen } = useFullscreen(container)
+
+const userControls = ref(false)
+const { idle } = useIdle(3000)
+const controls = computed(() => {
+	const state = props.playback === "play" ? (userControls.value ? !idle.value : false) : true
+	userControls.value = state
+	emits("update:controls", state)
+	return state
+})
 
 const tracks = computed(() => {
 	return [
@@ -160,6 +169,10 @@ function changeVolume(value: number) {
 
 function toggleFullscreen() {
 	emits("update:fullscreen")
+}
+
+function toggleUserControls() {
+	userControls.value = !userControls.value
 }
 
 function toggleDropdown(type: string | null) {
@@ -259,7 +272,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<main ref="container" class="relative w-full h-full rounded-lg bg-black md:overflow-hidden">
+	<main ref="container" class="relative w-full h-full rounded-lg bg-black md:overflow-hidden"
+		@click="toggleUserControls">
 		<video ref="video" :poster="poster" :src="src" class="absolute w-full h-full object-cover pc:object-contain" />
 		<div v-if="controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
 		<div v-if="isBuffering" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
