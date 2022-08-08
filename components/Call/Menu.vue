@@ -10,20 +10,11 @@ const emits = defineEmits<{
 }>()
 const socket = $callSocket()
 
-const { audioInputs, videoInputs } = useDevicesList({
-	requestPermissions: true,
-	constraints: {
-		audio: {
-			echoCancellation: true,
-			noiseSuppression: true,
-		},
-		video: {
-			width: { min: 640, ideal: 800, max: 854 },
-			height: { min: 360, ideal: 450, max: 480 }
-		}
-	}
+const { audioDeviceId: microphoneId, videoDeviceId: cameraId, enabled: streaming, stream: localStream, start: startStreaming, stop: stopStreaming } = useUserMedia({
+	audioDeviceId: user.currentMicrophoneId,
+	videoDeviceId: user.currentCameraId
 })
-const { audioDeviceId, videoDeviceId, enabled: streaming, stream: localStream } = useUserMedia()
+
 const remoteStreams = ref<Map<string, MediaStream>>(new Map())
 
 const localParticipant = computed(() => ({
@@ -60,33 +51,31 @@ const rtcConfig: RTCConfiguration = {
 const connectionId = ref<string>(null)
 const connection = ref<RTCPeerConnection>(null)
 
-function refreshStream() {
-	const currentAudioDeviceId = user.audio ? audioInputs.value[0].deviceId : false
-	const currentVideoDeviceId = user.video ? videoInputs.value[0].deviceId : false
+function updateStream() {
+	console.debug("Audio/Video Stream Updated");
 
-	streaming.value = !!(currentAudioDeviceId || currentVideoDeviceId)
-
+	streaming.value = user.audio || user.video
 	if (streaming.value) {
-		audioDeviceId.value = currentAudioDeviceId
-		videoDeviceId.value = currentVideoDeviceId
+		microphoneId.value = user.currentMicrophoneId
+		cameraId.value = user.currentCameraId
+	} else {
+		microphoneId.value = false
+		cameraId.value = false
 	}
-
-	// console.log("Stream", streaming.value)
-	// console.log("Microphone", !!currentAudioDeviceId, "Camera", !!currentVideoDeviceId);
 }
 
-watch(() => user.audio, refreshStream)
-watch(() => user.video, refreshStream)
+watch(() => user.audio, updateStream)
+watch(() => user.video, updateStream)
 
 // WebRTC Life Cycle Hooks
-watch(localStream, async (stream) => {
+watch(localStream, async () => {
 	if (isInit.value) {
 		refreshConnection()
 		return
 	}
 
 	isInit.value = true
-	emits("update:pinParticipant", participants.value[0])
+	emits("update:pinParticipant", localParticipant.value)
 
 	// console.log("Got Media");
 	await createOffer()
@@ -185,8 +174,8 @@ async function onGetICECandidate(id: string, candidate: RTCIceCandidateInit) {
 	await connection.value.addIceCandidate(candidate)
 }
 
-onMounted(() => {
-	streaming.value = true
+onMounted(async () => {
+	await startStreaming()
 
 	socket.on("offer", createAnswer)
 	socket.on("answer", addAnswer)
@@ -195,7 +184,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-	// streaming.value = false
+	stopStreaming()
 
 	socket.off("call", createAnswer)
 	socket.off("receive", addAnswer)

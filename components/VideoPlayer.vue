@@ -47,6 +47,8 @@ const emits = defineEmits<{
 const container = ref<HTMLElement>(null)
 const video = ref<HTMLVideoElement>(null)
 
+const isInit = ref(false)
+
 const isBuffering = ref(false)
 const bufferTime = ref(0)
 
@@ -71,10 +73,9 @@ const { isFullscreen } = useFullscreen(container)
 const userControls = ref(false)
 const { idle } = useIdle(3000)
 const controls = computed(() => {
-	const state = props.playback === "play" ? (userControls.value ? !idle.value : false) : true
-	userControls.value = state
-	emits("update:controls", state)
-	return state
+	userControls.value = props.playback === "play" ? (userControls.value ? !idle.value : false) : true
+	emits("update:controls", userControls.value)
+	return userControls.value
 })
 
 const tracks = computed(() => {
@@ -83,6 +84,11 @@ const tracks = computed(() => {
 		{ value: seekTime.value + bufferTime.value, color: "bg-slate-200/60" }
 	]
 })
+
+function triggerOnlyElement(event: Event, triggerFunction: Function) {
+	if (event.target === event.currentTarget)
+		triggerFunction()
+}
 
 function formatTime(duration: number) {
 	duration = Math.max(duration, 0);
@@ -222,6 +228,8 @@ function onPlayerInit() {
 	for (const info of videoInfo) {
 		qualities.value.push(`${info.height.toString()}p`)
 	}
+
+	isInit.value = true
 }
 
 function onBufferLoaded() {
@@ -272,15 +280,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<main ref="container" class="relative w-full h-full rounded-lg bg-black md:overflow-hidden"
-		@click="toggleUserControls">
-		<video ref="video" :poster="poster" :src="src" class="absolute w-full h-full object-cover pc:object-contain" />
-		<div v-if="controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
-		<div v-if="isBuffering" class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
+	<main ref="container" class="relative w-full h-full rounded-lg bg-black md:overflow-hidden">
+		<video ref="video" :poster="poster" :src="src" class="absolute w-full h-full object-cover pc:object-contain"
+			@click="toggleUserControls" />
+		<div v-if="isInit && controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
+		<div v-if="isInit && isBuffering"
+			class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
 			<NuxtIcon name="loader" class="text-7xl animate-spin" />
 		</div>
-		<section v-show="controls"
-			class="relative grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full h-full">
+		<section v-show="isInit && controls"
+			class="relative grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full h-full"
+			@click="triggerOnlyElement($event, toggleUserControls)">
 			<div
 				class="row-start-1 col-start-1 col-span-2 invisible landscape:visible justify-start self-start text-xl font-head">
 				{{ title }}
