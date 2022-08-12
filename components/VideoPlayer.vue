@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { useClamp } from '@vueuse/math'
+import { useMedia } from '../stores/media';
 import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
 
 const { $player: player } = useNuxtApp()
 
+const media = useMedia()
+
 const props = defineProps({
-	title: { type: String, required: true }, // Property Binding
-	poster: { type: String, required: true }, // Property Binding
-	src: { type: String, required: true }, // Property Binding
 	autoplay: { type: Boolean, default: false }, // Property Binding
 	buffer: {}, // Two-way Binding
 	playback: {}, // Two-way Binding
@@ -78,6 +78,10 @@ const controls = computed(() => {
 	return userControls.value
 })
 
+watch(() => media.episode, () => {
+	player.initialize(video.value, media.src, props.autoplay);
+})
+
 const tracks = computed(() => {
 	return [
 		{ value: seekTime.value, color: "bg-blue-400" },
@@ -108,6 +112,7 @@ function formatTime(duration: number) {
 	return `${hour}${minute}:${second}`
 }
 
+
 function changeBuffer(state: boolean, sync = true) {
 	// TODO:Change Buffering
 }
@@ -124,6 +129,7 @@ function togglePlay(isPaused = player.isPaused(), sync = true) {
 function changeSeek(time: number, sync = true) {
 	seekTime.value = time
 	player.seek(time)
+	bufferTime.value = 0
 	if (sync)
 		emits("update:seek", seekTime.value)
 
@@ -261,7 +267,7 @@ function onQualityChange(event: QualityChangeRequestedEvent) {
 useEventListener(window, "keydown", onKeyboardControl)
 
 onMounted(() => {
-	player.initialize(video.value, props.src, props.autoplay);
+	player.initialize(video.value, media.src, props.autoplay);
 
 	player.on("streamInitialized", onPlayerInit)
 	player.on("bufferLoaded", onBufferLoaded)
@@ -281,19 +287,20 @@ onBeforeUnmount(() => {
 
 <template>
 	<main ref="container" class="relative w-full h-full rounded-lg bg-black md:overflow-hidden">
-		<video ref="video" :poster="poster" :src="src" class="absolute w-full h-full object-cover pc:object-contain"
+		<video ref="video" :poster="media.poster" class="absolute w-full h-full object-cover pc:object-contain"
 			@click="toggleUserControls" />
 		<div v-if="isInit && controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
 		<div v-if="isInit && isBuffering"
 			class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
 			<NuxtIcon name="loader" class="text-7xl animate-spin" />
 		</div>
-		<section v-show="isInit && controls"
-			class="relative grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full h-full"
+		<section v-if="isInit"
+			class="relative top-1/2 grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full -translate-y-1/2 transition-[height_opacity] duration-300 ease-out"
+			:class="controls ? 'h-full opacity-100' : 'h-[200%] opacity-0'"
 			@click="triggerOnlyElement($event, toggleUserControls)">
 			<div
 				class="row-start-1 col-start-1 col-span-2 invisible landscape:visible justify-start self-start text-xl font-head">
-				{{ title }}
+				{{ media.title }}
 			</div>
 			<div class="row-start-1 col-start-3 justify-end self-start flex items-center gap-6">
 				<NuxtIcon name="cast" class="text-[2rem] cursor-pointer" />
@@ -307,7 +314,7 @@ onBeforeUnmount(() => {
 				<Slider :max="duration" :tracks="tracks" @update:tracks="changeSeek" />
 			</div>
 			<div class="row-start-3 col-start-1 col-span-2 justify-start self-end flex items-center gap-4">
-				<VideoControls :playback="isPlaying" @update:playback="togglePlay" class="hidden pc:inline" />
+				<VideoControls class="hidden pc:inline" :playback="isPlaying" @update:playback="togglePlay" />
 				<NuxtIcon :name="isMuted ? 'volume-muted' : 'volume-full'"
 					class="hidden landscape:inline text-[2rem] cursor-pointer" @click="toggleVolume()" />
 				<Slider :max="100" :tracks="[{ value: Number(!isMuted) * volume, color: 'bg-slate-200' }]"

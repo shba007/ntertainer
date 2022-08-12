@@ -1,14 +1,13 @@
 <script setup lang="ts">
+import { useMedia } from '../stores/media';
 import { Participant } from '../components/Call/Card.vue.js';
 
 const { $playerSocket } = useNuxtApp();
 const config = useRuntimeConfig();
 
-// const mediaMeta = ref({ type: "erotica", id: "111-1", episode: "1" })
-const mediaMeta = reactive({ type: "movie", id: "8-1", episode: "1" })
-const media = await queryContent(mediaMeta.type, mediaMeta.id).only(["title"]).findOne()
-const poster = `${config.public.apiURL}/public/${mediaMeta.type}/${mediaMeta.id}/Landscape.jpg`
-const src = `${config.public.apiURL}/public/${mediaMeta.type}/${mediaMeta.id}/${mediaMeta.episode}/manifest.mpd`
+const media = useMedia()
+const content = { title: "Date With College Senior" } //await queryContent(media.type, media.id).only(["title"]).findOne()
+media.init("web-series", "7-1", content.title, 1)
 
 const socket = $playerSocket()
 const container = ref<HTMLElement>(null)
@@ -109,6 +108,9 @@ async function onSocketInit() {
 	playbackRate.value = player.playbackRate
 	seek.value = player.seek
 }
+function onSocketMedia(id: string, episode: number) {
+	console.log(`By ${global} media changed ${media.episode}`);
+}
 function onSocketBuffer(id: string, state: "load" | "empty", time: number) {
 	console.debug(`By ${id} Global Buffer ${state} at ${time}`);
 	buffer.value = state
@@ -134,6 +136,7 @@ function onSocketDisconnect() {
 
 onMounted(() => {
 	socket.on("connect", onSocketConnect);
+	socket.on("media", onSocketMedia)
 	socket.on("buffer", onSocketBuffer);
 	socket.on("playback", onSocketPlayback);
 	socket.on("playback-rate", onSocketPlaybackRate);
@@ -163,10 +166,10 @@ onBeforeUnmount(() => {
 				:video="pinnedParticipant.video" :stream="pinnedParticipant.stream"
 				class="fixed right-2 top-2 md:right-4 md:top-4 invisible landscape:visible z-10" />
 			<ClientOnly placeholder="Loading...">
-				<LazyVideoPlayer :title="media.title" :poster="poster" :src="src" :autoplay="false" :buffer="buffer"
-					:playback="playback" :playbackRate="playbackRate" :seek="seek" @update:fullscreen="onFullscreen"
-					@update:controls="(value) => controls = value" @update:buffer="onBuffer"
-					@update:playback="onPlayback" @update:playbackRate="onPlaybackRate" @update:seek="onSeek" />
+				<LazyVideoPlayer :autoplay="false" :buffer="buffer" :playback="playback" :playbackRate="playbackRate"
+					:seek="seek" @update:fullscreen="onFullscreen" @update:controls="(value) => controls = value"
+					@update:buffer="onBuffer" @update:playback="onPlayback" @update:playbackRate="onPlaybackRate"
+					@update:seek="onSeek" />
 			</ClientOnly>
 		</section>
 		<section class="flex-grow md:hidden">
