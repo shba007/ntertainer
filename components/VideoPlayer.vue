@@ -308,7 +308,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-	<main ref="container" class="relative w-full h-full rounded-lg bg-black md:overflow-hidden">
+	<main ref="container"
+		class="relative -top-4 md:top-0 -left-2 md:left-0 w-[calc(100%+1rem)] md:w-full h-full md:rounded-lg bg-black overflow-hidden">
 		<video ref="video" :poster="poster" class="absolute w-full h-full object-cover pc:object-contain"
 			@click="toggleUserControls" />
 		<div v-if="isInit && controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />

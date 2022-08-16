@@ -2,13 +2,43 @@
 import { useMedia } from '../stores/media';
 import { Participant } from '../components/Call/Card.vue.js';
 
+interface Room {
+	id: string;
+	call: string;
+	chat: {
+		audio: boolean;
+		video: boolean;
+		id: string;
+	}[];
+	player: {
+		episode: number;
+		buffer: "load" | "empty";
+		playback: "play" | "pause";
+		playbackRate: number;
+		seek: number;
+	}
+}
+
+interface Media {
+	videography: "Live-Action" | "Animation",
+	title: string,
+	langs: { subtitle: string[], audio: string[] },
+	genres: string[],
+	description: string,
+	cast: string[],
+	directors: string[],
+	release: { data: Date, status: "Upcoming" | "Released" }
+	episodes: string,
+	production: string,
+	duration: number,
+	rating: number[],
+	views: number
+}
+
 const { $playerSocket } = useNuxtApp();
 const config = useRuntimeConfig();
 
 const media = useMedia()
-const content = { title: "Date With College Senior" } //await queryContent(media.type, media.id).only(["title"]).findOne()
-media.init("web-series", "7-1", content.title, { current: 1, total: 2 })
-
 const socket = $playerSocket()
 const container = ref<HTMLElement>(null)
 
@@ -89,22 +119,7 @@ function onSocketConnect() {
 	setTimeout(onSocketInit, 2000)
 }
 async function onSocketInit() {
-	const { data: room } = await useFetch<{
-		id: string;
-		call: string;
-		chat: {
-			audio: boolean;
-			video: boolean;
-			id: string;
-		}[];
-		player: {
-			episode: number;
-			buffer: "load" | "empty";
-			playback: "play" | "pause";
-			playbackRate: number;
-			seek: number;
-		}
-	}>(`${config.public.apiURL}/room`, { pick: ['player'] })
+	const { data: room } = await useFetch<Room>(`${config.public.apiURL}/room`, { pick: ['player'] })
 
 	const player = room.value.player
 	console.debug(`Global Player Status`, player);
@@ -142,7 +157,14 @@ function onSocketDisconnect() {
 	console.debug("WebSocket Disconnected");
 }
 
-onMounted(() => {
+onMounted(async () => {
+	const { data: meta } = await useFetch<{ type: string, id: string }>(`${config.public.apiURL}/media/latest`)
+	media.init(meta.value.type, meta.value.id)
+
+	const { data: info } = await useFetch<Media>(`${config.public.apiURL}/media/${media.type}/${media.id}`)
+	media.title = info.value.title
+	media.episode = { current: 1, total: info.value?.episodes?.length || 1 }
+
 	socket.on("connect", onSocketConnect);
 	socket.on("episode", onSocketEpisode)
 	socket.on("buffer", onSocketBuffer);
@@ -167,7 +189,7 @@ onBeforeUnmount(() => {
 
 <template>
 	<div class="flex flex-col md:flex-row gap-2 px-2 py-4 h-screen md:h-auto">
-		<section ref="container" class="relative w-full md:h-full aspect-video">
+		<section ref="container" class="w-full md:h-full aspect-video">
 			<CallControls v-show="controls"
 				class="fixed left-0 top-1/2 invisible landscape:visible -translate-y-[calc(50%+1.25rem)] z-10" />
 			<CallCard v-if="!!pinnedParticipant" v-show="isFullscreen && controls" :fullscreen="true"

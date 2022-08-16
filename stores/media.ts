@@ -14,11 +14,9 @@ export const useMedia = defineStore('media', {
 		}
 	},
 	actions: {
-		init(type: string, id: string, title: string, episode: { current: number, total: number }) {
+		init(type: string, id: string) {
 			this.type = type
 			this.id = id
-			this.title = title
-			this.episode = episode
 		}
 	}
 })
