@@ -7,11 +7,12 @@ const config = useRuntimeConfig();
 
 const media = useMedia()
 const content = { title: "Date With College Senior" } //await queryContent(media.type, media.id).only(["title"]).findOne()
-media.init("web-series", "7-1", content.title, 1)
+media.init("web-series", "7-1", content.title, { current: 1, total: 2 })
 
 const socket = $playerSocket()
 const container = ref<HTMLElement>(null)
 
+const episode = ref<number>(null)
 const buffer = ref<"load" | "empty">(null)
 const playback = ref<"play" | "pause">(null)
 const playbackRate = ref<number>(null)
@@ -49,6 +50,10 @@ async function onFullscreen() {
 	}
 }
 
+function onEpisode(episode: number) {
+	console.debug(`Local Episode playing ${episode}`);
+	socket.emit("episode", episode)
+}
 function onBuffer(state: "load" | "empty", time: number) {
 	console.debug(`Local Buffer ${state} at ${time}`);
 	// TODO: socket.emit("buffer", state, time)
@@ -93,6 +98,7 @@ async function onSocketInit() {
 			id: string;
 		}[];
 		player: {
+			episode: number;
 			buffer: "load" | "empty";
 			playback: "play" | "pause";
 			playbackRate: number;
@@ -103,13 +109,15 @@ async function onSocketInit() {
 	const player = room.value.player
 	console.debug(`Global Player Status`, player);
 
+	episode.value = player.episode
 	// TODO: buffer.value = player.buffer
 	playback.value = player.playback
 	playbackRate.value = player.playbackRate
 	seek.value = player.seek
 }
-function onSocketMedia(id: string, episode: number) {
-	console.log(`By ${global} media changed ${media.episode}`);
+function onSocketEpisode(id: string, currentEpisode: number) {
+	console.debug(`By ${id} episode changed ${currentEpisode}`);
+	episode.value = currentEpisode
 }
 function onSocketBuffer(id: string, state: "load" | "empty", time: number) {
 	console.debug(`By ${id} Global Buffer ${state} at ${time}`);
@@ -136,7 +144,7 @@ function onSocketDisconnect() {
 
 onMounted(() => {
 	socket.on("connect", onSocketConnect);
-	socket.on("media", onSocketMedia)
+	socket.on("episode", onSocketEpisode)
 	socket.on("buffer", onSocketBuffer);
 	socket.on("playback", onSocketPlayback);
 	socket.on("playback-rate", onSocketPlaybackRate);
@@ -146,6 +154,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
 	socket.off("connect", onSocketConnect);
+	socket.off("episode", onSocketEpisode)
 	socket.off("buffer", onSocketBuffer);
 	socket.off("playback", onSocketPlayback);
 	socket.off("playback-rate", onSocketPlaybackRate);
@@ -166,10 +175,10 @@ onBeforeUnmount(() => {
 				:video="pinnedParticipant.video" :stream="pinnedParticipant.stream"
 				class="fixed right-2 top-2 md:right-4 md:top-4 invisible landscape:visible z-10" />
 			<ClientOnly placeholder="Loading...">
-				<LazyVideoPlayer :autoplay="false" :buffer="buffer" :playback="playback" :playbackRate="playbackRate"
-					:seek="seek" @update:fullscreen="onFullscreen" @update:controls="(value) => controls = value"
-					@update:buffer="onBuffer" @update:playback="onPlayback" @update:playbackRate="onPlaybackRate"
-					@update:seek="onSeek" />
+				<LazyVideoPlayer :autoplay="false" :episode="episode" :buffer="buffer" :playback="playback"
+					:playbackRate="playbackRate" :seek="seek" @update:fullscreen="onFullscreen"
+					@update:controls="(value) => controls = value" @update:episode="onEpisode" @update:buffer="onBuffer"
+					@update:playback="onPlayback" @update:playbackRate="onPlaybackRate" @update:seek="onSeek" />
 			</ClientOnly>
 		</section>
 		<section class="flex-grow md:hidden">

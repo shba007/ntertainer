@@ -2,17 +2,35 @@
 import { useClamp } from '@vueuse/math'
 import { useMedia } from '../stores/media';
 import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
+import { isNumber } from '@vueuse/shared';
 
 const { $player: player } = useNuxtApp()
 
 const media = useMedia()
+const config = useRuntimeConfig()
 
 const props = defineProps({
 	autoplay: { type: Boolean, default: false }, // Property Binding
+	episode: {}, // Two-way Binding
 	buffer: {}, // Two-way Binding
 	playback: {}, // Two-way Binding
 	playbackRate: {}, // Two-way Binding
 	seek: {} // Two-way Binding
+})
+
+const emits = defineEmits<{
+	(event: "update:fullscreen"): void // Event Binding
+	(event: "update:controls", state: boolean): void // Event Binding
+	(event: "update:episode", episode: number): void // Two-way Binding
+	(event: "update:buffer", state: "load" | "empty", time: number): void // Two-way Binding
+	(event: "update:playback", state: "play" | "pause", time: number): void // Two-way Binding
+	(event: "update:playbackRate", rate: number, time: number): void // Two-way Binding
+	(event: "update:seek", time: number): void // Two-way Binding
+}>()
+
+watch(() => props.episode, (value: number) => {
+	console.debug("Parent Episode", value);
+	changeEpisode(value, false)
 })
 
 watch(() => props.buffer, (value: "load" | "empty") => {
@@ -34,15 +52,6 @@ watch(() => props.seek, (value: number) => {
 	console.debug("Parent Seek", value);
 	changeSeek(value, false)
 })
-
-const emits = defineEmits<{
-	(event: "update:fullscreen"): void // Event Binding
-	(event: "update:controls", state: boolean): void // Event Binding
-	(event: "update:buffer", state: "load" | "empty", time: number): void // Two-way Binding
-	(event: "update:playback", state: "play" | "pause", time: number): void // Two-way Binding
-	(event: "update:playbackRate", rate: number, time: number): void // Two-way Binding
-	(event: "update:seek", time: number): void // Two-way Binding
-}>()
 
 const container = ref<HTMLElement>(null)
 const video = ref<HTMLVideoElement>(null)
@@ -78,10 +87,6 @@ const controls = computed(() => {
 	return userControls.value
 })
 
-watch(() => media.episode, () => {
-	player.initialize(video.value, media.src, props.autoplay);
-})
-
 const tracks = computed(() => {
 	return [
 		{ value: seekTime.value, color: "bg-blue-400" },
@@ -89,10 +94,8 @@ const tracks = computed(() => {
 	]
 })
 
-function triggerOnlyElement(event: Event, triggerFunction: Function) {
-	if (event.target === event.currentTarget)
-		triggerFunction()
-}
+const poster = computed(() => `${config.public.apiURL}/public/${media.type}/${media.id}/Landscape.jpg`)
+const src = computed(() => `${config.public.apiURL}/public/${media.type}/${media.id}/${media.episode.current}/manifest.mpd`)
 
 function formatTime(duration: number) {
 	duration = Math.max(duration, 0);
@@ -112,6 +115,19 @@ function formatTime(duration: number) {
 	return `${hour}${minute}:${second}`
 }
 
+function changeEpisode(episode: "prev" | "next" | number, sync = true) {
+	let newEpisode = isNumber(episode) ? episode : media.episode.current;
+	if (!isNumber(episode))
+		newEpisode += episode === "prev" ? -1 : +1
+
+	media.episode.current = useClamp(newEpisode, 1, media.episode.total).value
+	console.log(`Episode ${media.episode.current} is Playing`)
+	player.initialize(video.value, src.value, props.autoplay);
+	if (sync)
+		emits("update:episode", media.episode.current)
+
+	toggleDropdown(null)
+}
 
 function changeBuffer(state: boolean, sync = true) {
 	// TODO:Change Buffering
@@ -235,6 +251,12 @@ function onPlayerInit() {
 		qualities.value.push(`${info.height.toString()}p`)
 	}
 
+	isBuffering.value = false
+	bufferTime.value = 0
+
+	isPlaying.value = props.autoplay
+	seekTime.value = 0
+
 	isInit.value = true
 }
 
@@ -267,7 +289,7 @@ function onQualityChange(event: QualityChangeRequestedEvent) {
 useEventListener(window, "keydown", onKeyboardControl)
 
 onMounted(() => {
-	player.initialize(video.value, media.src, props.autoplay);
+	player.initialize(video.value, src.value, props.autoplay);
 
 	player.on("streamInitialized", onPlayerInit)
 	player.on("bufferLoaded", onBufferLoaded)
@@ -287,7 +309,7 @@ onBeforeUnmount(() => {
 
 <template>
 	<main ref="container" class="relative w-full h-full rounded-lg bg-black md:overflow-hidden">
-		<video ref="video" :poster="media.poster" class="absolute w-full h-full object-cover pc:object-contain"
+		<video ref="video" :poster="poster" class="absolute w-full h-full object-cover pc:object-contain"
 			@click="toggleUserControls" />
 		<div v-if="isInit && controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
 		<div v-if="isInit && isBuffering"
@@ -296,8 +318,7 @@ onBeforeUnmount(() => {
 		</div>
 		<section v-if="isInit"
 			class="relative top-1/2 grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full -translate-y-1/2 transition-[height_opacity] duration-300 ease-out"
-			:class="controls ? 'h-full opacity-100' : 'h-[200%] opacity-0'"
-			@click="triggerOnlyElement($event, toggleUserControls)">
+			:class="controls ? 'h-full opacity-100' : 'h-[200%] opacity-0'" @click.self="toggleUserControls">
 			<div
 				class="row-start-1 col-start-1 col-span-2 invisible landscape:visible justify-start self-start text-xl font-head">
 				{{ media.title }}
@@ -307,14 +328,16 @@ onBeforeUnmount(() => {
 			</div>
 			<div
 				class="row-start-2 col-start-2 justify-center self-center flex pc:invisible items-center gap-8 translate-y-0 landscape:-translate-y-5 ">
-				<VideoControls v-if="!isBuffering" :playback="isPlaying" @update:playback="togglePlay" />
+				<VideoControls v-if="!isBuffering" :playback="isPlaying" @update:playback="togglePlay"
+					@update:episode="changeEpisode" />
 			</div>
 			<div
 				class="absolute -left-1 -right-1 -bottom-1 landscape:relative row-start-3 landscape:row-start-2 col-start-1 col-span-3 self-end">
 				<Slider :max="duration" :tracks="tracks" @update:tracks="changeSeek" />
 			</div>
 			<div class="row-start-3 col-start-1 col-span-2 justify-start self-end flex items-center gap-4">
-				<VideoControls class="hidden pc:inline" :playback="isPlaying" @update:playback="togglePlay" />
+				<VideoControls class="hidden pc:inline" :playback="isPlaying" @update:playback="togglePlay"
+					@update:episode="changeEpisode" />
 				<NuxtIcon :name="isMuted ? 'volume-muted' : 'volume-full'"
 					class="hidden landscape:inline text-[2rem] cursor-pointer" @click="toggleVolume()" />
 				<Slider :max="100" :tracks="[{ value: Number(!isMuted) * volume, color: 'bg-slate-200' }]"
