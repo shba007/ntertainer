@@ -1,52 +1,11 @@
 <script setup lang="ts">
 import { useMedia } from '../stores/media';
+import { usePlayer } from '../stores/Player';
 import { Participant } from '../components/Call/Card.vue.js';
 
-interface Room {
-	id: string;
-	call: string;
-	chat: {
-		audio: boolean;
-		video: boolean;
-		id: string;
-	}[];
-	player: {
-		episode: number;
-		buffer: "load" | "empty";
-		playback: "play" | "pause";
-		playbackRate: number;
-		seek: number;
-	}
-}
-
-interface Media {
-	videography: "Live-Action" | "Animation",
-	title: string,
-	langs: { subtitle: string[], audio: string[] },
-	genres: string[],
-	description: string,
-	cast: string[],
-	directors: string[],
-	release: { data: Date, status: "Upcoming" | "Released" }
-	episodes: string,
-	production: string,
-	duration: number,
-	rating: number[],
-	views: number
-}
-
-const { $playerSocket } = useNuxtApp();
-const config = useRuntimeConfig();
-
 const media = useMedia()
-const socket = $playerSocket()
+const player = usePlayer()
 const container = ref<HTMLElement>(null)
-
-const episode = ref<number>(null)
-const buffer = ref<"load" | "empty">(null)
-const playback = ref<"play" | "pause">(null)
-const playbackRate = ref<number>(null)
-const seek = ref<number>(null)
 
 const controls = ref<boolean>(true)
 const {
@@ -80,111 +39,12 @@ async function onFullscreen() {
 	}
 }
 
-function onEpisode(episode: number) {
-	console.debug(`Local Episode playing ${episode}`);
-	socket.emit("episode", episode)
-}
-function onBuffer(state: "load" | "empty", time: number) {
-	console.debug(`Local Buffer ${state} at ${time}`);
-	// TODO: socket.emit("buffer", state, time)
-	buffer.value = state
-	seek.value = time
-}
-function onPlayback(state: "play" | "pause", time: number) {
-	console.debug(`Local Playback ${state} at ${time}`);
-	socket.emit("playback", state, time)
-	playback.value = state
-	seek.value = time
-}
-function onPlaybackRate(rate: number, time: number) {
-	console.debug(`Local PlaybackRate ${rate} at ${time}`);
-	socket.emit("playback-rate", rate, time)
-	playbackRate.value = rate
-	seek.value = time
-}
-function onSeek(time: number) {
-	console.debug(`Local Seek to ${time}`);
-	socket.emit("seek", time)
-	seek.value = time
-}
-
 // Call Life Cycle Hooks
 function onPinStream(participant: Participant) {
 	pinnedParticipant.value = participant
 }
 
-// WebSocket Life Cycle Hooks
-function onSocketConnect() {
-	console.debug("WebSocket Connected", socket.id);
-	setTimeout(onSocketInit, 2000)
-}
-async function onSocketInit() {
-	const { data: room } = await useFetch<Room>(`${config.public.apiURL}/room`, { pick: ['player'] })
-
-	const player = room.value.player
-	console.debug(`Global Player Status`, player);
-
-	episode.value = player.episode
-	// TODO: buffer.value = player.buffer
-	playback.value = player.playback
-	playbackRate.value = player.playbackRate
-	seek.value = player.seek
-}
-function onSocketEpisode(id: string, currentEpisode: number) {
-	console.debug(`By ${id} episode changed ${currentEpisode}`);
-	episode.value = currentEpisode
-}
-function onSocketBuffer(id: string, state: "load" | "empty", time: number) {
-	console.debug(`By ${id} Global Buffer ${state} at ${time}`);
-	buffer.value = state
-	seek.value = time
-}
-function onSocketPlayback(id: string, state: "play" | "pause", time: number) {
-	console.debug(`By ${id} Global Playback ${state} at ${time}`);
-	playback.value = state
-	seek.value = time
-}
-function onSocketPlaybackRate(id: string, rate: number, time: number) {
-	console.debug(`By ${id} Global PlaybackRate ${rate} at ${time}`);
-	playbackRate.value = rate
-	seek.value = time
-}
-function onSocketSeek(id: string, time: number) {
-	console.debug(`By ${id} Global Seek to ${time}`);
-	seek.value = time
-}
-function onSocketDisconnect() {
-	console.debug("WebSocket Disconnected");
-}
-
-onMounted(async () => {
-	const { data: meta } = await useFetch<{ type: string, id: string }>(`${config.public.apiURL}/media/latest`)
-	media.init(meta.value.type, meta.value.id)
-
-	const { data: info } = await useFetch<Media>(`${config.public.apiURL}/media/${media.type}/${media.id}`)
-	media.title = info.value.title
-	media.episode = { current: 1, total: info.value?.episodes?.length || 1 }
-
-	socket.on("connect", onSocketConnect);
-	socket.on("episode", onSocketEpisode)
-	socket.on("buffer", onSocketBuffer);
-	socket.on("playback", onSocketPlayback);
-	socket.on("playback-rate", onSocketPlaybackRate);
-	socket.on("seek", onSocketSeek);
-	socket.on("disconnect", onSocketDisconnect);
-})
-
-onBeforeUnmount(() => {
-	socket.off("connect", onSocketConnect);
-	socket.off("episode", onSocketEpisode)
-	socket.off("buffer", onSocketBuffer);
-	socket.off("playback", onSocketPlayback);
-	socket.off("playback-rate", onSocketPlaybackRate);
-	socket.off("seek", onSocketSeek);
-	socket.off("disconnect", onSocketDisconnect);
-
-	socket.disconnect()
-})
+// FIXME: Video is flickering during play on mobile only
 </script>
 
 <template>
@@ -197,10 +57,9 @@ onBeforeUnmount(() => {
 				:video="pinnedParticipant.video" :stream="pinnedParticipant.stream"
 				class="fixed right-2 top-2 md:right-4 md:top-4 invisible landscape:visible z-10" />
 			<ClientOnly placeholder="Loading...">
-				<LazyVideoPlayer :autoplay="false" :episode="episode" :buffer="buffer" :playback="playback"
-					:playbackRate="playbackRate" :seek="seek" @update:fullscreen="onFullscreen"
-					@update:controls="(value) => controls = value" @update:episode="onEpisode" @update:buffer="onBuffer"
-					@update:playback="onPlayback" @update:playbackRate="onPlaybackRate" @update:seek="onSeek" />
+				<LazyVideoPlayer :autoplay="false" :type="media.type" :id="media.id" :episode="player.episode"
+					@update:fullscreen="onFullscreen" @update:controls="(value) => controls = value"
+					@update:episode="(episode) => player.episode = episode" />
 			</ClientOnly>
 		</section>
 		<section class="flex-grow md:hidden">

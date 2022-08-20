@@ -1,56 +1,36 @@
 <script setup lang="ts">
 import { useClamp } from '@vueuse/math'
-import { useMedia } from '../stores/media';
+import { isNumber } from '@vueuse/core';
+import { useMedia } from '~/stores/media';
+import { usePlayer } from '~/stores/player';
+import { formatTime } from '~/utils/time'
 import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
-import { isNumber } from '@vueuse/shared';
 
-const { $player: player } = useNuxtApp()
+const { $player: player, $playerSocket } = useNuxtApp()
+const socket = $playerSocket()
 
-const media = useMedia()
 const config = useRuntimeConfig()
+const media = useMedia()
+const playerStore = usePlayer()
 
 const props = defineProps({
-	autoplay: { type: Boolean, default: false }, // Property Binding
-	episode: {}, // Two-way Binding
-	buffer: {}, // Two-way Binding
-	playback: {}, // Two-way Binding
-	playbackRate: {}, // Two-way Binding
-	seek: {} // Two-way Binding
+	autoplay: { type: Boolean, required: true }, // Property Binding
+	type: {},//Two-way Binding
+	id: { type: String, required: true },//Two-way Binding
+	episode: { type: Number, required: true }, // Two-way Binding
 })
 
 const emits = defineEmits<{
 	(event: "update:fullscreen"): void // Event Binding
 	(event: "update:controls", state: boolean): void // Event Binding
-	(event: "update:episode", episode: number): void // Two-way Binding
-	(event: "update:buffer", state: "load" | "empty", time: number): void // Two-way Binding
-	(event: "update:playback", state: "play" | "pause", time: number): void // Two-way Binding
-	(event: "update:playbackRate", rate: number, time: number): void // Two-way Binding
-	(event: "update:seek", time: number): void // Two-way Binding
+	(event: "update:episode", episode: number): void // Event Binding
 }>()
 
 watch(() => props.episode, (value: number) => {
-	console.debug("Parent Episode", value);
-	changeEpisode(value, false)
-})
+	console.debug(`Episode ${value} is Playing`)
+	player.initialize(video.value, src.value, isPlaying.value);
 
-watch(() => props.buffer, (value: "load" | "empty") => {
-	console.debug("Parent Buffer", value);
-	changeBuffer(value === "load", false)
-})
-
-watch(() => props.playback, (value: "play" | "pause") => {
-	console.debug("Parent Playback", value);
-	togglePlay(value === "play", false)
-})
-
-watch(() => props.playbackRate, (value: number) => {
-	console.debug("Parent PlaybackRate", value);
-	changePlaybackRate(value, false)
-})
-
-watch(() => props.seek, (value: number) => {
-	console.debug("Parent Seek", value);
-	changeSeek(value, false)
+	toggleDropdown(null)
 })
 
 const container = ref<HTMLElement>(null)
@@ -61,11 +41,11 @@ const isInit = ref(false)
 const isBuffering = ref(false)
 const bufferTime = ref(0)
 
-const isPlaying = ref(false)
+const isPlaying = ref<boolean>(false)
 const seekTime = ref(0)
 
 const playbackRates = ref([0.5, 0.75, 1, 1.25, 2])
-const playbackRateIndex = ref(2)
+const playbackRateIndex = ref<number>(2)
 
 const isAuto = ref(true)
 const qualities = ref<string[]>([])
@@ -82,7 +62,8 @@ const { isFullscreen } = useFullscreen(container)
 const userControls = ref(false)
 const { idle } = useIdle(3000)
 const controls = computed(() => {
-	userControls.value = props.playback === "play" ? (userControls.value ? !idle.value : false) : true
+	userControls.value = isPlaying.value ? (userControls.value ? !idle.value : false) : true
+
 	emits("update:controls", userControls.value)
 	return userControls.value
 })
@@ -94,51 +75,38 @@ const tracks = computed(() => {
 	]
 })
 
-const poster = computed(() => `${config.public.apiURL}/public/${media.type}/${media.id}/Landscape.jpg`)
-const src = computed(() => `${config.public.apiURL}/public/${media.type}/${media.id}/${media.episode.current}/manifest.mpd`)
-
-function formatTime(duration: number) {
-	duration = Math.max(duration, 0);
-
-	const h = Math.floor(duration / 3600);
-	const m = Math.floor(duration % 3600 / 60);
-	const s = Math.floor(duration % 3600 % 60);
-
-	const hour = h > 0 ? h : ""
-
-	let prefix = h > 0 ? ":" + (m < 10 ? "0" : "") : ""
-	const minute = prefix + m
-
-	prefix = s < 10 ? "0" : ""
-	const second = prefix + s
-
-	return `${hour}${minute}:${second}`
-}
+const poster = computed(() => `${config.public.apiURL}/public/${props.type}/${props.id}/Landscape.jpg`)
+const src = computed(() => `${config.public.apiURL}/public/${props.type}/${props.id}/${props.episode}/manifest.mpd`)
 
 function changeEpisode(episode: "prev" | "next" | number, sync = true) {
-	let newEpisode = isNumber(episode) ? episode : media.episode.current;
+	let newEpisode = isNumber(episode) ? episode : props.episode;
 	if (!isNumber(episode))
 		newEpisode += episode === "prev" ? -1 : +1
+	newEpisode = useClamp(newEpisode, 1, media.totalEpisodes).value
 
-	media.episode.current = useClamp(newEpisode, 1, media.episode.total).value
-	console.log(`Episode ${media.episode.current} is Playing`)
-	player.initialize(video.value, src.value, props.autoplay);
-	if (sync)
-		emits("update:episode", media.episode.current)
-
-	toggleDropdown(null)
+	emits("update:episode", newEpisode)
+	if (sync) {
+		console.debug(`Local Episode playing ${newEpisode}`);
+		socket.emit("episode", newEpisode)
+	}
 }
 
 function changeBuffer(state: boolean, sync = true) {
 	// TODO:Change Buffering
+	// if (sync) {
+	// 	console.debug(`Local Buffer ${isBuffering.value ? "load" : "empty"} at ${seekTime.value}`);
+	// 	socket.emit("buffer", isBuffering.value ? "load" : "empty", seekTime.value)
+	// }
 }
 
 function togglePlay(isPaused = player.isPaused(), sync = true) {
 	console.debug(`Video is ${isPaused ? "Played" : "Paused"}`);
 	isPlaying.value = isPaused
 	isPaused ? player.play() : player.pause()
-	if (sync)
-		emits("update:playback", isPaused ? "play" : "pause", seekTime.value)
+	if (sync) {
+		console.debug(`Local Playback ${isPaused ? "play" : "pause"} at ${seekTime.value}`);
+		socket.emit("playback", isPaused ? "play" : "pause", seekTime.value)
+	}
 
 	toggleDropdown(null)
 }
@@ -146,8 +114,10 @@ function changeSeek(time: number, sync = true) {
 	seekTime.value = time
 	player.seek(time)
 	bufferTime.value = 0
-	if (sync)
-		emits("update:seek", seekTime.value)
+	if (sync) {
+		console.debug(`Local Seek to ${seekTime.value}`);
+		socket.emit("seek", seekTime.value)
+	}
 
 	toggleDropdown(null)
 }
@@ -155,8 +125,10 @@ function changeSeek(time: number, sync = true) {
 function changePlaybackRate(rateIndex: number, sync = true) {
 	playbackRateIndex.value = useClamp(rateIndex, 0, playbackRates.value.length - 1).value
 	player.setPlaybackRate(playbackRates.value[playbackRateIndex.value])
-	if (sync)
-		emits("update:playbackRate", playbackRateIndex.value, seekTime.value)
+	if (sync) {
+		console.debug(`Local PlaybackRate ${playbackRateIndex.value} at ${seekTime.value}`);
+		socket.emit("playback-rate", playbackRateIndex.value, seekTime.value)
+	}
 
 	toggleDropdown(null)
 }
@@ -236,6 +208,8 @@ function onKeyboardControl(event: KeyboardEvent) {
 	}
 }
 
+useEventListener(window, "keydown", onKeyboardControl)
+
 // Player Life Cycle Hooks
 function onPlayerInit() {
 	console.debug("Steam Initialized");
@@ -251,11 +225,13 @@ function onPlayerInit() {
 		qualities.value.push(`${info.height.toString()}p`)
 	}
 
-	isBuffering.value = false
-	bufferTime.value = 0
+	// changeBuffer(playerStore.buffer,false)
+	togglePlay(playerStore.playback ? (playerStore.playback == "play") : props.autoplay, false)
+	changeSeek(playerStore.seek, false)
+	changePlaybackRate(playerStore.playbackRate, false)
+	console.log("Player seek", playerStore.seek);
 
-	isPlaying.value = props.autoplay
-	seekTime.value = 0
+	changeSeek(playerStore.seek, false)
 
 	isInit.value = true
 }
@@ -263,14 +239,14 @@ function onPlayerInit() {
 function onBufferLoaded() {
 	console.debug("Video Buffer Loaded");
 	isBuffering.value = false
-	emits("update:buffer", "load", seekTime.value)
+	changeBuffer(isBuffering.value)
 }
 
 function onBufferEmptied() {
 	console.debug("Video Buffer Empty");
 	isBuffering.value = true
 	bufferTime.value = 0
-	emits("update:buffer", "empty", seekTime.value)
+	changeBuffer(isBuffering.value)
 }
 
 function onPlaybackUpdate(event: PlaybackTimeUpdatedEvent) {
@@ -286,16 +262,53 @@ function onQualityChange(event: QualityChangeRequestedEvent) {
 	}
 }
 
-useEventListener(window, "keydown", onKeyboardControl)
+// WebSocket Life Cycle Hooks
+function onSocketConnect() {
+	console.debug("WebSocket Connected", socket.id);
+}
+function onSocketEpisode(id: string, episode: number) {
+	console.debug(`By ${id} episode changed ${episode}`);
+	changeEpisode(episode, false)
+}
+function onSocketBuffer(id: string, state: "load" | "empty", time: number) {
+	console.debug(`By ${id} Global Buffer ${state} at ${time}`);
+	// changeBuffer(state == "load" )
+	changeSeek(time, false)
+}
+function onSocketPlayback(id: string, state: "play" | "pause", time: number) {
+	console.debug(`By ${id} Global Playback ${state} at ${time}`);
+	togglePlay(state == "play", false)
+	changeSeek(time, false)
+}
+function onSocketPlaybackRate(id: string, rate: number, time: number) {
+	console.debug(`By ${id} Global PlaybackRate ${rate} at ${time}`);
+	changePlaybackRate(rate, false)
+	changeSeek(time, false)
+}
+function onSocketSeek(id: string, time: number) {
+	console.debug(`By ${id} Global Seek to ${time}`);
+	changeSeek(time, false)
+}
+function onSocketDisconnect() {
+	console.debug("WebSocket Disconnected");
+}
 
 onMounted(() => {
-	player.initialize(video.value, src.value, props.autoplay);
+	player.initialize(video.value, src.value, isPlaying.value);
 
 	player.on("streamInitialized", onPlayerInit)
 	player.on("bufferLoaded", onBufferLoaded)
 	player.on("bufferStalled", onBufferEmptied)
 	player.on("playbackTimeUpdated", onPlaybackUpdate)
 	player.on("qualityChangeRequested", onQualityChange)
+
+	socket.on("connect", onSocketConnect);
+	socket.on("episode", onSocketEpisode)
+	socket.on("buffer", onSocketBuffer);
+	socket.on("playback", onSocketPlayback);
+	socket.on("playback-rate", onSocketPlaybackRate);
+	socket.on("seek", onSocketSeek);
+	socket.on("disconnect", onSocketDisconnect);
 })
 
 onBeforeUnmount(() => {
@@ -304,6 +317,16 @@ onBeforeUnmount(() => {
 	player.off("bufferStalled", onBufferEmptied)
 	player.off("playbackTimeUpdated", onPlaybackUpdate)
 	player.off("qualityChangeRendered", onQualityChange)
+
+	socket.off("connect", onSocketConnect);
+	socket.off("episode", onSocketEpisode)
+	socket.off("buffer", onSocketBuffer);
+	socket.off("playback", onSocketPlayback);
+	socket.off("playback-rate", onSocketPlaybackRate);
+	socket.off("seek", onSocketSeek);
+	socket.off("disconnect", onSocketDisconnect);
+
+	socket.disconnect()
 })
 </script>
 
