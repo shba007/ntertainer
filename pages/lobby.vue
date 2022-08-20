@@ -49,12 +49,12 @@ media.init(meta.value.type, meta.value.id)
 const { data: info } = await useFetch<Media>(`${config.public.apiURL}/media/${media.type}/${media.id}`)
 media.title = info.value.title
 media.episodes = info.value?.episodes ? info.value?.episodes : [1]
-console.log("Media Info", media.type, media.id, media.title, media.episodes);
+console.debug(`Media Info Type: ${media.type} Id: ${media.id} Title: ${media.title} Episodes: ${media.episodes}`);
 
 const { data: room } = await useFetch<Room>(`${config.public.apiURL}/room`)
 const { episode, buffer, playback, playbackRate, seek } = room.value.player
-console.log("Room info", episode, buffer, playback, playbackRate, seek);
 player.init(episode, buffer, playback, playbackRate, seek)
+console.debug(`Room Player Info Episode: ${episode} Buffer: ${buffer} Playback: ${playback} PlaybackRate: ${playbackRate} Seek: ${seek}`);
 
 const participants = [
 	{

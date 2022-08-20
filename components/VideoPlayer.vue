@@ -28,7 +28,7 @@ const emits = defineEmits<{
 
 watch(() => props.episode, (value: number) => {
 	console.debug(`Episode ${value} is Playing`)
-	player.initialize(video.value, src.value, isPlaying.value);
+	player.initialize(video.value, src.value, props.autoplay);
 
 	toggleDropdown(null)
 })
@@ -225,12 +225,10 @@ function onPlayerInit() {
 		qualities.value.push(`${info.height.toString()}p`)
 	}
 
-	// changeBuffer(playerStore.buffer,false)
-	togglePlay(playerStore.playback ? (playerStore.playback == "play") : props.autoplay, false)
+	// TODO: changeBuffer(playerStore.buffer,false)
+	isPlaying.value = props.autoplay
 	changeSeek(playerStore.seek, false)
 	changePlaybackRate(playerStore.playbackRate, false)
-	console.log("Player seek", playerStore.seek);
-
 	changeSeek(playerStore.seek, false)
 
 	isInit.value = true
@@ -294,7 +292,7 @@ function onSocketDisconnect() {
 }
 
 onMounted(() => {
-	player.initialize(video.value, src.value, isPlaying.value);
+	player.initialize(video.value, src.value, props.autoplay);
 
 	player.on("streamInitialized", onPlayerInit)
 	player.on("bufferLoaded", onBufferLoaded)

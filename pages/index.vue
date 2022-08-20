@@ -1,6 +1,8 @@
 <script setup lang="ts">
 </script>
 
+<!-- FIXME: Video is flickering during play on mobile only -->
+<!-- TODO: Add seek and timestamp and calculate seektime -->
 <template>
 	<div class="flex flex-col gap-4 justify-center items-center min-w-[100vw] min-h-[100vh]">
 		<NuxtLink to="/lobby" class="px-4 py-2 rounded-full text-white bg-blue-500 ">

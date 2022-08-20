@@ -43,8 +43,6 @@ async function onFullscreen() {
 function onPinStream(participant: Participant) {
 	pinnedParticipant.value = participant
 }
-
-// FIXME: Video is flickering during play on mobile only
 </script>
 
 <template>
@@ -57,8 +55,9 @@ function onPinStream(participant: Participant) {
 				:video="pinnedParticipant.video" :stream="pinnedParticipant.stream"
 				class="fixed right-2 top-2 md:right-4 md:top-4 invisible landscape:visible z-10" />
 			<ClientOnly placeholder="Loading...">
-				<LazyVideoPlayer :autoplay="false" :type="media.type" :id="media.id" :episode="player.episode"
-					@update:fullscreen="onFullscreen" @update:controls="(value) => controls = value"
+				<LazyVideoPlayer :autoplay="player.playback == 'play'" :type="media.type" :id="media.id"
+					:episode="player.episode" @update:fullscreen="onFullscreen"
+					@update:controls="(value) => controls = value"
 					@update:episode="(episode) => player.episode = episode" />
 			</ClientOnly>
 		</section>
