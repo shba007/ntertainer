@@ -5,7 +5,7 @@ export const useUser = defineStore('user', {
 	state: () => ({
 		$speaker: { state: true, id: undefined },
 		$microphone: { state: true, id: undefined },
-		$camera: { state: true, id: undefined }
+		$camera: { state: true, id: undefined },
 	}),
 	getters: {
 		audio: (state) => state.$microphone.state,

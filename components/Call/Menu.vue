@@ -29,7 +29,6 @@ const remoteParticipants = computed(() => (Array.from(remoteStreams.value, ([id,
 }))))
 
 const participants = computed(() => [localParticipant.value, ...remoteParticipants.value])
-const isInit = ref(false)
 
 const rtcConfig: RTCConfiguration = {
 	iceServers: [{
@@ -47,16 +46,8 @@ const connection = ref<RTCPeerConnection>(null)
 
 // WebRTC Life Cycle Hooks
 watch(() => user.stream, async () => {
-	if (isInit.value) {
-		refreshConnection()
-		return
-	}
-
-	isInit.value = true
 	emits("update:pinParticipant", localParticipant.value)
-
-	// console.log("Got Media");
-	await createOffer()
+	await refreshConnection()
 });
 
 function createConnection() {
@@ -133,15 +124,12 @@ async function refreshConnection() {
 	const videoTrack = user.stream.getVideoTracks()[0]
 
 	// console.log("Get Tracks", audioTrack, videoTrack);
-	const senders = connection.value.getSenders()
-		.reduce((a, sender) => ({ ...a, [sender.track.kind]: sender }), {}) as { audio: RTCRtpSender, video: RTCRtpSender }
+	const senders = connection.value.getSenders().reduce((a, sender) => ({ ...a, [sender.track.kind]: sender }), {}) as { audio: RTCRtpSender, video: RTCRtpSender }
 
-	if (senders.audio || senders.video) {
-		if (!!audioTrack)
-			await senders["audio"].replaceTrack(audioTrack)
-		if (!!videoTrack)
-			await senders["video"].replaceTrack(videoTrack)
-	}
+	if (!!audioTrack)
+		await senders.audio.replaceTrack(audioTrack)
+	if (!!videoTrack)
+		await senders.video.replaceTrack(videoTrack)
 }
 
 async function removeConnection(id: string) {
@@ -155,6 +143,9 @@ async function onGetICECandidate(id: string, candidate: RTCIceCandidateInit) {
 }
 
 onMounted(async () => {
+	// console.log("Got Media");
+	await createOffer()
+
 	socket.on("offer", createAnswer)
 	socket.on("answer", addAnswer)
 	socket.on("candidate", onGetICECandidate)
@@ -168,8 +159,7 @@ onBeforeUnmount(() => {
 	socket.off("remove", removeConnection)
 
 	socket.disconnect()
-	if (connection.value)
-		connection.value.close()
+	connection.value.close()
 })
 </script>
 
