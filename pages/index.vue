@@ -1,6 +1,7 @@
 <script setup lang="ts">
 </script>
 
+<!-- FIXME: SpaceBar causes to return prev page only on vivaldi-->
 <!-- FIXME: Video is flickering during play on mobile only -->
 <!-- TODO: Add seek and timestamp and calculate seektime -->
 <template>

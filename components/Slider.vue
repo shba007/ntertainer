@@ -74,15 +74,15 @@ function onDeviceUp() {
 	isDrag.value = null
 }
 
-useEventListener(window, "mousemove", useThrottleFn(onDeviceMove, 100))
 useEventListener(window, "touchmove", useThrottleFn(onDeviceMove, 100))
-useEventListener(window, "mouseup", onDeviceUp)
+useEventListener(window, "mousemove", useThrottleFn(onDeviceMove, 100))
 useEventListener(window, "touchend", onDeviceUp)
+useEventListener(window, "mouseup", onDeviceUp)
 </script>
 
 <template>
-	<div class="relative flex items-center w-full cursor-pointer py-1" @mousedown="onDeviceDown"
-		@touchstart="onDeviceDown">
+	<div class="relative flex items-center w-full cursor-pointer py-1" @touchstart="onDeviceDown"
+		@mousedown="onDeviceDown">
 		<div ref="bar" class="relative w-full h-1 bg-slate-200/40 rounded-full overflow-hidden">
 			<div v-for="(track, id) in tracks"
 				class="track absolute left-0 right-0 top-0 bottom-0 origin-[left_center] rounded-full transition-transform duration-100 ease-out"

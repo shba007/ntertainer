@@ -9,12 +9,6 @@ const emits = defineEmits<{
 	(event: "update:pinParticipant", participant: Participant): void
 }>()
 const socket = $callSocket()
-
-const { audioDeviceId: microphoneId, videoDeviceId: cameraId, enabled: streaming, stream: localStream, start: startStreaming, stop: stopStreaming } = useUserMedia({
-	audioDeviceId: user.currentMicrophoneId,
-	videoDeviceId: user.currentCameraId
-})
-
 const remoteStreams = ref<Map<string, MediaStream>>(new Map())
 
 const localParticipant = computed(() => ({
@@ -23,7 +17,7 @@ const localParticipant = computed(() => ({
 	name: { first: "Participant 1", last: "" },
 	audio: user.audio,
 	video: user.video,
-	stream: localStream.value
+	stream: user.stream
 }))
 const remoteParticipants = computed(() => (Array.from(remoteStreams.value, ([id, stream]) => ({
 	id,
@@ -51,24 +45,8 @@ const rtcConfig: RTCConfiguration = {
 const connectionId = ref<string>(null)
 const connection = ref<RTCPeerConnection>(null)
 
-function updateStream() {
-	console.debug("Audio/Video Stream Updated");
-
-	streaming.value = user.audio || user.video
-	if (streaming.value) {
-		microphoneId.value = user.currentMicrophoneId
-		cameraId.value = user.currentCameraId
-	} else {
-		microphoneId.value = false
-		cameraId.value = false
-	}
-}
-
-watch(() => user.audio, updateStream)
-watch(() => user.video, updateStream)
-
 // WebRTC Life Cycle Hooks
-watch(localStream, async () => {
+watch(() => user.stream, async () => {
 	if (isInit.value) {
 		refreshConnection()
 		return
@@ -85,8 +63,8 @@ function createConnection() {
 	connection.value = new RTCPeerConnection(rtcConfig)
 	console.debug("Peer Connection Created");
 
-	if (localStream.value) {
-		localStream.value.getTracks().forEach(track => {
+	if (user.stream) {
+		user.stream.getTracks().forEach(track => {
 			connection.value.addTrack(track)
 		})
 	}
@@ -148,20 +126,22 @@ async function addAnswer(id: string, answer: RTCSessionDescriptionInit) {
 }
 
 async function refreshConnection() {
-	if (!localStream.value)
+	if (!user.stream)
 		return
 
-	const audioTrack = localStream.value.getAudioTracks()[0]
-	const videoTrack = localStream.value.getVideoTracks()[0]
+	const audioTrack = user.stream.getAudioTracks()[0]
+	const videoTrack = user.stream.getVideoTracks()[0]
 
 	// console.log("Get Tracks", audioTrack, videoTrack);
 	const senders = connection.value.getSenders()
 		.reduce((a, sender) => ({ ...a, [sender.track.kind]: sender }), {}) as { audio: RTCRtpSender, video: RTCRtpSender }
 
-	if (!!audioTrack)
-		await senders["audio"].replaceTrack(audioTrack)
-	if (!!videoTrack)
-		await senders["video"].replaceTrack(videoTrack)
+	if (senders.audio || senders.video) {
+		if (!!audioTrack)
+			await senders["audio"].replaceTrack(audioTrack)
+		if (!!videoTrack)
+			await senders["video"].replaceTrack(videoTrack)
+	}
 }
 
 async function removeConnection(id: string) {
@@ -175,8 +155,6 @@ async function onGetICECandidate(id: string, candidate: RTCIceCandidateInit) {
 }
 
 onMounted(async () => {
-	await startStreaming()
-
 	socket.on("offer", createAnswer)
 	socket.on("answer", addAnswer)
 	socket.on("candidate", onGetICECandidate)
@@ -184,15 +162,14 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-	stopStreaming()
-
 	socket.off("call", createAnswer)
 	socket.off("receive", addAnswer)
 	socket.off("candidate", onGetICECandidate)
 	socket.off("remove", removeConnection)
 
 	socket.disconnect()
-	connection.value.close()
+	if (connection.value)
+		connection.value.close()
 })
 </script>
 

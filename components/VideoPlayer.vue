@@ -33,8 +33,9 @@ watch(() => props.episode, (value: number) => {
 	toggleDropdown(null)
 })
 
-const container = ref<HTMLElement>(null)
-const video = ref<HTMLVideoElement>(null)
+const container = ref<HTMLElement>()
+const video = ref<HTMLVideoElement>()
+const subtitle = ref<HTMLDivElement>()
 
 const isInit = ref(false)
 
@@ -57,6 +58,7 @@ const volume = ref(70)
 const duration = ref(0)
 const dropdown = ref<string>(null)
 
+const isSubtitle = ref(false)
 const { isFullscreen } = useFullscreen(container)
 
 const userControls = ref(false)
@@ -167,6 +169,14 @@ function changeVolume(value: number) {
 	toggleDropdown(null)
 }
 
+function toggleSubtitle() {
+	isSubtitle.value = !isSubtitle.value
+	player.enableText(isSubtitle.value)
+}
+function changeSubtitle(lang: string) {
+	player.setInitialMediaSettingsFor('text', { lang: lang, role: 'subtitle' });
+}
+
 function toggleFullscreen() {
 	emits("update:fullscreen")
 }
@@ -214,6 +224,10 @@ useEventListener(window, "keydown", onKeyboardControl)
 function onPlayerInit() {
 	console.debug("Steam Initialized");
 	duration.value = player.duration()
+	player.attachTTMLRenderingDiv(subtitle.value);
+
+	const textInfo = player.getBitrateInfoListFor("text")
+	console.table(textInfo, ["mediaType", "bitrate"]);
 
 	const audioInfo = player.getBitrateInfoListFor("audio")
 	console.table(audioInfo, ["mediaType", "bitrate"]);
@@ -333,6 +347,7 @@ onBeforeUnmount(() => {
 		class="relative -top-4 md:top-0 -left-2 md:left-0 w-[calc(100%+1rem)] md:w-full h-full md:rounded-lg bg-black overflow-hidden">
 		<video ref="video" :poster="poster" class="absolute w-full h-full object-cover pc:object-contain"
 			@click="toggleUserControls" />
+		<div ref="subtitle" v-show="isSubtitle" />
 		<div v-if="isInit && controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
 		<div v-if="isInit && isBuffering"
 			class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
@@ -367,7 +382,8 @@ onBeforeUnmount(() => {
 				<span class="font-mono">{{ formatTime(seekTime) }} / {{ formatTime(duration) }}</span>
 			</div>
 			<div class="row-start-3 col-start-3 justify-end self-end flex items-center gap-6">
-				<NuxtIcon name="subtitle" class="invisible landscape:visible text-[2rem] cursor-pointer" />
+				<NuxtIcon :name="isSubtitle ? 'subtitle' : 'subtitle-off'"
+					class="invisible landscape:visible text-[2rem] cursor-pointer" @click="toggleSubtitle" />
 				<NuxtIcon name="sound-settings" class="invisible landscape:visible text-[2rem] cursor-pointer" />
 				<NuxtIcon name="video-settings" class="invisible landscape:visible text-[2rem] cursor-pointer"
 					@click="toggleDropdown('video')" />

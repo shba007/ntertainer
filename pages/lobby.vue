@@ -12,7 +12,7 @@ interface Media {
 	description: string,
 	cast: string[],
 	directors: string[],
-	release: { data: Date, status: "Upcoming" | "Released" }
+	release: { date: Date, status: "released" | "upcoming" }
 	episodes: string,
 	production: string,
 	duration: number,
@@ -95,22 +95,12 @@ const { audioOutputs: speakers, audioInputs: microphones, videoInputs: cameras }
 	},
 })
 
-const { audioDeviceId: microphoneId, videoDeviceId: cameraId, enabled: streaming, stream } = useUserMedia({
-	audioDeviceId: user.currentMicrophoneId,
-	videoDeviceId: user.currentCameraId
-})
+const seed = (Math.random() + 1).toString(36).substring(7)
+const avatar = ref(`https://avatars.dicebear.com/api/adventurer/${seed}.svg?r=50`)
 
 watchEffect(() => {
-	if (container.value && stream.value)
-		container.value.srcObject = stream.value
-})
-
-onMounted(async () => {
-	streaming.value = true
-})
-
-onBeforeUnmount(() => {
-	streaming.value = false
+	if (container.value && user.stream)
+		container.value.srcObject = user.stream
 })
 </script>
 
@@ -123,7 +113,7 @@ onBeforeUnmount(() => {
 			<div class="flex items-center gap-2 text-xs mt-[2px] mb-[10px]">
 				<span>{{ formatTime(info.duration, false) }}</span>
 				&bull;
-				<span>{{ useDateFormat(info.release.data, 'YYYY').value }}</span>
+				<span>{{ useDateFormat(info.release.date, 'YYYY').value }}</span>
 			</div>
 			<ul class="flex items-center gap-2 text-[10px]">
 				<li v-for="genre in info.genres.slice(0, 3)" :key="genre"
@@ -133,13 +123,21 @@ onBeforeUnmount(() => {
 			</ul>
 		</section>
 		<section class="relative">
-			<video ref="container" muted autoplay playsinline class="rounded-xl w-full aspect-video object-cover" />
+			<div
+				class="grid grid-rows-[3fr_3fr_2fr] grid-cols-[8fr_15fr_25fr] justify-items-center items-center rounded-xl w-full aspect-video bg-slate-200 overflow-hidden">
+				<div
+					class="row-start-1 row-span-3 col-start-1 col-span-3 p-[6px] rounded-full bg-slate-300 overflow-hidden">
+					<img :src="avatar" alt="avatar" class="w-12 md:w-14 lg:w-20" />
+				</div>
+				<video ref="container" muted autoplay playsinline
+					class="row-start-1 row-span-3 col-start-1 col-span-3 w-full h-full object-cover" />
+			</div>
 			<ul
 				class="absolute bottom-0 left-0 right-0 grid grid-cols-[repeat(2,min-content)_auto_min-content] gap-4 m-3">
-				<li class="rounded-full p-2 bg-slate-300 cursor-pointer">
+				<li class="rounded-full p-2 bg-slate-300 cursor-pointer" @click="user.toggleMicrophone">
 					<NuxtIcon :name="user.audio ? 'microphone' : 'microphone-off'" class="text-2xl" />
 				</li>
-				<li class="rounded-full p-2 bg-slate-300 cursor-pointer">
+				<li class="rounded-full p-2 bg-slate-300 cursor-pointer" @click="user.toggleCamera">
 					<NuxtIcon :name="user.video ? 'camera' : 'camera-off'" class="text-2xl" />
 				</li>
 				<li class="col-start-4 rounded-full p-2 bg-slate-300 cursor-pointer justify-self-end">
