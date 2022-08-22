@@ -81,7 +81,7 @@ useEventListener(window, "mouseup", onDeviceUp)
 </script>
 
 <template>
-	<div class="relative flex items-center w-full cursor-pointer py-1" @touchstart="onDeviceDown"
+	<div class="relative flex items-center w-full cursor-pointer py-1" @touchstart.passive="onDeviceDown"
 		@mousedown="onDeviceDown">
 		<div ref="bar" class="relative w-full h-1 bg-slate-200/40 rounded-full overflow-hidden">
 			<div v-for="(track, id) in tracks"

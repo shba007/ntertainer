@@ -1,18 +1,32 @@
 import { defineStore } from "pinia"
-const { audioDeviceId, videoDeviceId, enabled, stream } = useUserMedia({ enabled: true })
+
+const { audioInputs: microphones, videoInputs: cameras } = useDevicesList({
+	requestPermissions: true,
+	constraints: {
+		audio: {
+			echoCancellation: true,
+			noiseSuppression: true,
+		},
+		video: {
+			width: { min: 640, ideal: 800, max: 854 },
+			height: { min: 360, ideal: 450, max: 480 }
+		}
+	},
+})
+const { audioDeviceId, videoDeviceId, enabled, stream } = useUserMedia({ enabled: false })
 
 export const useUser = defineStore('user', {
 	state: () => ({
-		$speaker: { state: true, id: undefined },
-		$microphone: { state: true, id: undefined },
-		$camera: { state: true, id: undefined },
+		$microphone: { state: true, id: microphones.value[0]?.deviceId, label: microphones.value[0]?.label },
+		$camera: { state: true, id: cameras.value[0]?.deviceId, label: microphones.value[0]?.label },
 	}),
 	getters: {
 		audio: (state) => state.$microphone.state,
 		video: (state) => state.$camera.state,
-		currentSpeakerId: (state) => state.$speaker.state ? state.$speaker.id : false,
-		currentMicrophoneId: (state) => state.$microphone.state ? state.$microphone.id : false,
-		currentCameraId: (state) => state.$camera.state ? state.$camera.id : false,
+		microphones: () => microphones.value.reduce((microphones, microphone) => ([...microphones, { id: microphone.deviceId, label: microphone.label }]), []),
+		cameras: () => cameras.value.reduce((cameras, camera) => ([...cameras, { id: camera.deviceId, label: camera.label }]), []),
+		currentMicrophone: (state) => (!state.$microphone.state ? { id: false } : { id: state.$microphone.id, label: state.$microphone.label }),
+		currentCamera: (state) => (!state.$camera.state ? { id: false } : { id: state.$camera.id, label: state.$camera.label }),
 		stream: () => stream.value,
 		streaming: () => enabled.value,
 	},
@@ -25,24 +39,27 @@ export const useUser = defineStore('user', {
 			this.$camera.state = !this.$camera.state
 			this.$updateStream()
 		},
-		setSpeaker(deviceId: string | false) {
-			this.$speaker.id = deviceId
+		setMicrophone(microphone: { id: string, label: string }) {
+			this.$microphone.id = audioDeviceId.value = microphone.id
+			this.$microphone.label = microphone.label
 		},
-		setMicrophone(deviceId: string | false) {
-			this.$microphone.id = deviceId
-			audioDeviceId.value = deviceId
+		setCamera(camera: { id: string, label: string }) {
+			this.$camera.id = videoDeviceId.value = camera.id
+			this.$camera.label = camera.label
 		},
-		setCamera(deviceId: string | false) {
-			this.$camera.id = deviceId
-			videoDeviceId.value = deviceId
+		enableStreaming() {
+			enabled.value = true
+		},
+		disableStreaming() {
+			enabled.value = false
 		},
 		$updateStream() {
 			console.debug("Audio/Video Stream Updated");
 			enabled.value = this.audio || this.video
 
 			if (enabled.value) {
-				audioDeviceId.value = this.currentMicrophoneId
-				videoDeviceId.value = this.currentCameraId
+				audioDeviceId.value = this.currentMicrophone.id
+				videoDeviceId.value = this.currentCamera.id
 			} else {
 				audioDeviceId.value = false
 				videoDeviceId.value = false

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useMedia } from '../stores/media';
-import { usePlayer } from '../stores/player';
-import { useUser } from '../stores/user';
+import { useMedia } from '~/stores/media';
+import { usePlayer } from '~/stores/player';
+import { useUser } from '~/stores/user';
 import { formatTime } from '~/utils/time';
 
 interface Media {
@@ -71,32 +71,13 @@ const participants = [
 	}
 ]
 
-const { audioOutputs: speakers, audioInputs: microphones, videoInputs: cameras } = useDevicesList({
-	requestPermissions: true,
-	constraints: {
-		audio: {
-			echoCancellation: true,
-			noiseSuppression: true,
-		},
-		video: {
-			width: { min: 640, ideal: 800, max: 854 },
-			height: { min: 360, ideal: 450, max: 480 }
-		}
-	},
-	onUpdated() {
-		if (!speakers.value.find(i => i.deviceId === user.currentSpeakerId))
-			user.setSpeaker(speakers.value[0]?.deviceId)
-
-		if (!microphones.value.find(i => i.deviceId === user.currentMicrophoneId))
-			user.setMicrophone(microphones.value[0]?.deviceId)
-
-		if (!cameras.value.find(i => i.deviceId === user.currentCameraId))
-			user.setCamera(cameras.value[0]?.deviceId)
-	},
-})
-
 const seed = (Math.random() + 1).toString(36).substring(7)
 const avatar = ref(`https://avatars.dicebear.com/api/adventurer/${seed}.svg?r=50`)
+const isSettings = ref(false)
+
+function toggleSettings() {
+	isSettings.value = !isSettings.value
+}
 
 watchEffect(() => {
 	if (container.value && user.stream)
@@ -140,38 +121,30 @@ watchEffect(() => {
 				<li class="rounded-full p-2 bg-slate-300 cursor-pointer" @click="user.toggleCamera">
 					<NuxtIcon :name="user.video ? 'camera' : 'camera-off'" class="text-2xl" />
 				</li>
-				<li class="col-start-4 rounded-full p-2 bg-slate-300 cursor-pointer justify-self-end">
+				<li class="col-start-4 rounded-full p-2 bg-slate-300 cursor-pointer justify-self-end"
+					@click="toggleSettings">
 					<NuxtIcon name="gear" class="text-2xl" />
 				</li>
 			</ul>
-			<dialog>
+			<dialog :open="isSettings"
+				class="fixed bottom-0 left-0 right-0 mx-0 rounded-t-3xl w-full bg-slate-300 z-10">
+				<NuxtIcon name="gear" class="relative ml-auto text-2xl" @click="toggleSettings" />
+				<ul>
+					<li class="text-center text-lg font-medium">Microphone</li>
+					<li v-for="microphone in user.microphones"
+						:class="{ 'text-blue-500': microphone.id === user.currentMicrophone.id }"
+						@click="user.setMicrophone(microphone)">
+						{{ microphone.label.length > 28 ? microphone.label.slice(0, 28) + '...' : microphone.label }}
+					</li>
+				</ul>
+				<ul>
+					<li class="text-center text-lg font-medium">Camera</li>
+					<li v-for="camera in user.cameras" :class="{ 'text-blue-500': camera.id === user.currentCamera.id }"
+						@click="user.setCamera(camera)">
+						{{ camera.label }}
+					</li>
+				</ul>
 			</dialog>
-			<!-- <div class="flex gap-2"> -->
-			<!-- <ul>
-				<li class="text-center">Speaker</li>
-				<li v-for="audioOutput in speakers"
-					:class="{ 'text-blue-500': user.currentSpeakerId === audioOutput.deviceId }"
-					@click="user.setSpeaker(audioOutput.deviceId)">
-					{{ audioOutput.label }}
-				</li>
-			</ul>
-			<ul>
-				<li class="text-center">Microphone</li>
-				<li v-for="audioInput in microphones"
-					:class="{ 'text-blue-500': user.currentMicrophoneId === audioInput.deviceId }"
-					@click="user.setMicrophone(audioInput.deviceId)">
-					{{ audioInput.label }}
-				</li>
-			</ul>
-			<ul>
-				<li class="text-center">Camera</li>
-				<li v-for="videoInput in cameras"
-					:class="{ 'text-blue-500': user.currentCameraId === videoInput.deviceId }"
-					@click="user.setCamera(videoInput.deviceId)">
-					{{ videoInput.label }}
-				</li>
-			</ul> -->
-			<!-- </div> -->
 		</section>
 		<section class="flex">
 			<div v-for="(participant, index) in participants" class="rounded-full p-[6px] bg-slate-300 overflow-hidden"

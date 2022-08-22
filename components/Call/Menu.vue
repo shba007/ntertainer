@@ -46,8 +46,8 @@ const connection = ref<RTCPeerConnection>(null)
 
 // WebRTC Life Cycle Hooks
 watch(() => user.stream, async () => {
-	emits("update:pinParticipant", localParticipant.value)
 	await refreshConnection()
+	emits("update:pinParticipant", localParticipant.value)
 });
 
 function createConnection() {
@@ -60,6 +60,7 @@ function createConnection() {
 		})
 	}
 
+	// WebRTC Life Cycle
 	connection.value.onicecandidate = (event) => {
 		if (event.candidate) {
 			console.debug("New ICE Candidate");
@@ -72,6 +73,15 @@ function createConnection() {
 		const remoteStream = remoteStreams.value.get(connectionId.value)
 		remoteStream.addTrack(event.track)
 	}
+
+	/* connection.value.onnegotiationneeded = async (event) => {
+		if (connectionId.value) {
+			console.log("Peer Connection Negotiation Needed");
+			await connection.value.setLocalDescription()
+			console.log(connection.value.localDescription);
+			socket.emit("offer", connection.value.localDescription)
+		}
+	} */
 }
 
 async function createOffer() {
@@ -124,12 +134,20 @@ async function refreshConnection() {
 	const videoTrack = user.stream.getVideoTracks()[0]
 
 	// console.log("Get Tracks", audioTrack, videoTrack);
-	const senders = connection.value.getSenders().reduce((a, sender) => ({ ...a, [sender.track.kind]: sender }), {}) as { audio: RTCRtpSender, video: RTCRtpSender }
+	const senders = connection.value.getSenders().reduce((senders, sender) => ({ ...senders, [sender.track?.kind]: sender }), {}) as { audio: RTCRtpSender, video: RTCRtpSender }
 
-	if (!!audioTrack)
-		await senders.audio.replaceTrack(audioTrack)
+	if (senders.audio && senders.video) {
+		if (!!audioTrack)
+			senders.audio ? await senders.audio.replaceTrack(audioTrack) : connection.value.addTrack(audioTrack)
+		if (!!videoTrack)
+			senders.video ? await senders.video.replaceTrack(videoTrack) : connection.value.addTrack(videoTrack)
+	} else
+		await createOffer()
+	/* if (!!audioTrack)
+		senders.audio ? await senders.audio.replaceTrack(audioTrack) : connection.value.addTrack(audioTrack)
 	if (!!videoTrack)
-		await senders.video.replaceTrack(videoTrack)
+		senders.video ? await senders.video.replaceTrack(videoTrack) : connection.value.addTrack(videoTrack)
+	  */
 }
 
 async function removeConnection(id: string) {
@@ -158,8 +176,8 @@ onBeforeUnmount(() => {
 	socket.off("candidate", onGetICECandidate)
 	socket.off("remove", removeConnection)
 
-	socket.disconnect()
 	connection.value.close()
+	socket.disconnect()
 })
 </script>
 
