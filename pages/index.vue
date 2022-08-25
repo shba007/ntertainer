@@ -1,26 +1,63 @@
 <script setup lang="ts">
 import { useUser } from '~/stores/user';
+import { Media } from "./lobby.vue";
+
+const config = useRuntimeConfig()
+// FIXME: SpaceBar causes to return prev page only on vivaldi
+// FIXME: Video is flickering during play only on mobile
+// TODO: Add seek and timestamp and calculate seektime
 
 const user = useUser()
+const categories = [
+	{
+		title: 'Erotica',
+		key: 'erotica'
+	},
+	{
+		title: 'Movie',
+		key: 'movie'
+	},
+	{
+		title: 'TV Series',
+		key: 'tv-series'
+	},
+	{
+		title: 'Web Series',
+		key: 'web-series'
+	}
+]
+const selectedCategory = ref<number>()
+const medias = ref<Media>()
+
+watch(selectedCategory, async () => {
+	const { data } = await useFetch<Media>(`${config.public.apiURL}/media/${categories[selectedCategory.value].key}`, { initialCache: false })
+	medias.value = data.value
+})
 
 // FIXME: enable/disable streaming depending on route
 onBeforeMount(() => {
 	user.disableStreaming()
+	selectedCategory.value = 1
 })
+
 onBeforeUnmount(() => {
 	user.enableStreaming()
 })
 </script>
 
-<!-- FIXME: SpaceBar causes to return prev page only on vivaldi -->
-<!-- FIXME: Video is flickering during play only on mobile -->
-<!-- TODO: Add seek and timestamp and calculate seektime -->
 <template>
-	<div class="flex flex-col gap-4 justify-center items-center min-w-[100vw] min-h-[100vh]">
-		<NuxtLink to="/lobby" class="px-4 py-2 rounded-full text-white bg-blue-500 ">
-			Next
-		</NuxtLink>
-	</div>
+	<main class="relative p-4 text-black">
+		<header class=""></header>
+		<ul class="flex justify-between">
+			<li v-for="(category, index) in categories" class="rounded-full px-3 py-1 bg-slate-300 text-xs"
+				@click="selectedCategory = index">
+				{{ category.title }}
+			</li>
+		</ul>
+		<section class="grid grid-cols-2 gap-4 justify-between justify-items-center content-start py-4 min-h-[100vh]">
+			<MediaCard v-for="media in medias" :media="media" />
+		</section>
+	</main>
 </template>
 
 <style>

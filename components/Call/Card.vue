@@ -61,8 +61,7 @@ watchEffect(() => {
 		<video ref="container" autoplay :muted="isMuted" playsinline
 			class="row-start-1 row-span-3 col-start-1 col-span-3 w-full h-full object-cover" />
 		<span v-if="!fullscreen" class="row-start-3 col-start-1 m-1 rounded-full p-1 pc:p-[6px] bg-slate-300">
-			<NuxtIcon :name="audio ? 'microphone' : 'microphone-off'" class="text-base pc:text-2xl"
-				:class="audio ? 'text-blue-500' : 'text-black'" />
+			<NuxtIcon :name="audio ? 'microphone' : 'microphone-off'" class="text-base pc:text-2xl text-black" />
 		</span>
 		<span v-if="!fullscreen"
 			class="row-start-3 col-start-3 m-1 rounded-full px-3 py-1 w-fit text-xs pc:text-base whitespace-nowrap bg-slate-300">

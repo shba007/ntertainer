@@ -3,7 +3,7 @@ import { useClamp } from '@vueuse/math'
 import { isNumber } from '@vueuse/core';
 import { useMedia } from '~/stores/media';
 import { usePlayer } from '~/stores/player';
-import { formatTime } from '~/utils/time'
+import { formatTime } from '~/utils/helpers'
 import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
 
 const { $player: player, $playerSocket } = useNuxtApp()
@@ -77,7 +77,7 @@ const tracks = computed(() => {
 	]
 })
 
-const poster = computed(() => `${config.public.apiURL}/public/${props.type}/${props.id}/Landscape.jpg`)
+const poster = computed(() => `${config.public.apiURL}/public/${props.type}/${props.id}/Landscape.avif`)
 const src = computed(() => `${config.public.apiURL}/public/${props.type}/${props.id}/${props.episode}/manifest.mpd`)
 
 function changeEpisode(episode: "prev" | "next" | number, sync = true) {
@@ -355,7 +355,8 @@ onBeforeUnmount(() => {
 		</div>
 		<section v-if="isInit"
 			class="relative top-1/2 grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full -translate-y-1/2 transition-[height_opacity] duration-300 ease-out"
-			:class="controls ? 'h-full opacity-100' : 'h-[200%] opacity-0'" @click.self="toggleUserControls">
+			:class="controls ? 'h-full opacity-100 cursor-auto' : 'h-[200%] opacity-0 cursor-none'"
+			@click.self="toggleUserControls">
 			<div
 				class="row-start-1 col-start-1 col-span-2 invisible landscape:visible justify-start self-start text-xl font-head">
 				{{ media.title }}

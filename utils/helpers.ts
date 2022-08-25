@@ -17,4 +17,15 @@ function formatTime(duration: number, separator = true) {
 	return `${hour}${minute}${separator ? second : ''}`
 }
 
-export { formatTime }
+function calculateRating(ratings: number[]) {
+	const totalRating = ratings.reduce((total, count, rating) => total + (rating + 1) * count, 0)
+	const totalRatingScale = 1 + 2 + 3 + 4 + 5
+
+	return (totalRating / totalRatingScale).toFixed(1)
+}
+
+function trim(str: string, length: number) {
+	return str.length > length ? str.slice(0, length) + '...' : str
+}
+
+export { formatTime, calculateRating, trim }
