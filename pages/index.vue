@@ -26,18 +26,17 @@ const categories = [
 		key: 'web-series'
 	}
 ]
-const selectedCategory = ref<number>()
-const medias = ref<Media>()
+const selectedCategory = ref(0)
+const { pending, error, data: medias, refresh } = await useFetch<Media[]>(() => `media/${categories[selectedCategory.value].key}`, { baseURL: config.public.apiURL })
 
-watch(selectedCategory, async () => {
-	const { data } = await useFetch<Media>(`${config.public.apiURL}/media/${categories[selectedCategory.value].key}`, { initialCache: false })
-	medias.value = data.value
-})
+function changeCategory(category: number) {
+	selectedCategory.value = category
+	refresh()
+}
 
 // FIXME: enable/disable streaming depending on route
-onBeforeMount(() => {
+onBeforeMount(async () => {
 	user.disableStreaming()
-	selectedCategory.value = 1
 })
 
 onBeforeUnmount(() => {
@@ -47,15 +46,18 @@ onBeforeUnmount(() => {
 
 <template>
 	<main class="relative p-4 text-black">
-		<header class=""></header>
+		<header class="flex flex-col">
+			<span>Total Content {{ medias.length }}</span>
+		</header>
 		<ul class="flex justify-between">
-			<li v-for="(category, index) in categories" class="rounded-full px-3 py-1 bg-slate-300 text-xs"
-				@click="selectedCategory = index">
+			<li v-for="(category, index) in categories" class="rounded-full px-3 py-1  text-xs"
+				:class="[selectedCategory == index ? 'bg-pink-600 text-white' : 'bg-slate-300 text-black']"
+				@click="changeCategory(index)">
 				{{ category.title }}
 			</li>
 		</ul>
 		<section class="grid grid-cols-2 gap-4 justify-between justify-items-center content-start py-4 min-h-[100vh]">
-			<MediaCard v-for="media in medias" :media="media" />
+			<MediaCard v-for="media in medias" :key="`${media.type}_${media.id}`" :media="media" />
 		</section>
 	</main>
 </template>

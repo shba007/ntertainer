@@ -30,11 +30,13 @@ async function onFullscreen() {
 
 	if (!isFullscreen.value) {
 		await enterFullscreen()
-		if (isScreenOrientationSupported)
+
+		if (isScreenOrientationSupported.value)
 			await lockOrientation("landscape")
 	} else {
 		await exitFullScreen()
-		if (isScreenOrientationSupported)
+
+		if (isScreenOrientationSupported.value)
 			unlockOrientation()
 	}
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useUser } from '../../stores/user';
+import { useUser } from '~/stores/user';
 import { Participant } from './Card.vue';
 
 const { $callSocket } = useNuxtApp()

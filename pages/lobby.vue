@@ -6,6 +6,8 @@ import { formatTime } from '~/utils/helpers';
 
 export interface Media {
 	videography: "Live-Action" | "Animation",
+	type: "erotica" | "movie" | "tv-series" | "web-series",
+	id: string,
 	title: string,
 	langs: { subtitle: string[], audio: string[] },
 	genres: string[],
@@ -45,14 +47,14 @@ const player = usePlayer()
 
 media.init(route.query.type as string, route.query.id as string)
 
-const { pending: infoPending, error: infoError, data: info } = useLazyFetch<Media>(`${config.public.apiURL}/media/${media.type}/${media.id}`)
+const { pending: infoPending, error: infoError, data: info } = useLazyFetch<Media>(`media/${media.type}/${media.id}`, { baseURL: config.public.apiURL })
 watch(info, (newInfo) => {
 	media.title = newInfo.title
 	media.episodes = newInfo?.episodes ? newInfo?.episodes : [1]
 	console.debug(`Media Info Title: ${media.title} Episodes: ${media.episodes}`);
 })
 
-const { pending: roomPending, error: roomError, data: room } = useLazyFetch<Room>(`${config.public.apiURL}/room`)
+const { pending: roomPending, error: roomError, data: room } = useLazyFetch<Room>(`room`, { baseURL: config.public.apiURL })
 watch(room, (newRoom) => {
 	const { episode, buffer, playback, playbackRate, seek } = newRoom.player
 	player.init(episode, buffer, playback, playbackRate, seek)
