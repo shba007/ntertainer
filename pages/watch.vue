@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useMedia } from '../stores/media';
-import { usePlayer } from '../stores/player';
-import { Participant } from '../components/Call/Card.vue.js';
+import { useMedia } from '~/stores/media';
+import { usePlayer } from '~/stores/player';
+import { Participant } from '~/utils/models';
 
 const media = useMedia()
 const player = usePlayer()

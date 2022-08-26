@@ -1,13 +1,4 @@
 <script setup lang="ts">
-export interface Participant {
-	id: string;
-	local: boolean,
-	name: { first: string; last: string };
-	audio: boolean;
-	video: boolean;
-	stream: MediaStream;
-}
-
 const props = defineProps({
 	fullscreen: {
 		type: Boolean,

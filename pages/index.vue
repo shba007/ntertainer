@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useUser } from '~/stores/user';
-import { Media } from "./lobby.vue";
+import { Media } from '~/utils/models';
 
 const config = useRuntimeConfig()
 // FIXME: SpaceBar causes to return prev page only on vivaldi

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useMedia } from '../stores/media';
-import { usePlayer } from '../stores/player';
+import { useMedia } from '~/stores/media';
+import { usePlayer } from '~/stores/player';
 
 const props = defineProps({
 	playback: {

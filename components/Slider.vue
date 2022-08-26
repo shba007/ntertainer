@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PropType } from "vue";
+import { PropType } from 'vue';
 import { useClamp } from '@vueuse/math'
 
 const props = defineProps({

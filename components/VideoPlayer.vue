@@ -5,6 +5,7 @@ import { useMedia } from '~/stores/media';
 import { usePlayer } from '~/stores/player';
 import { formatTime } from '~/utils/helpers'
 import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
+import { Seek } from '../utils/models';
 
 const { $player: player, $playerSocket } = useNuxtApp()
 const socket = $playerSocket()
@@ -42,11 +43,11 @@ const isInit = ref(false)
 const isBuffering = ref(false)
 const bufferTime = ref(0)
 
-const isPlaying = ref<boolean>(false)
+const isPlaying = ref(false)
 const seekTime = ref(0)
 
 const playbackRates = ref([0.5, 0.75, 1, 1.25, 2])
-const playbackRateIndex = ref<number>(2)
+const playbackRateIndex = ref(2)
 
 const isAuto = ref(true)
 const qualities = ref<string[]>([])
@@ -97,28 +98,33 @@ function changeBuffer(state: boolean, sync = true) {
 	// TODO:Change Buffering
 	// if (sync) {
 	// 	console.debug(`Local Buffer ${isBuffering.value ? "load" : "empty"} at ${seekTime.value}`);
-	// 	socket.emit("buffer", isBuffering.value ? "load" : "empty", seekTime.value)
+	//  playerStore.setSeek(seekTime.value)
+	// 	socket.emit("buffer", isBuffering.value ? "load" : "empty", playerStore.seekStamp)
 	// }
 }
 
 function togglePlay(isPaused = player.isPaused(), sync = true) {
 	console.debug(`Video is ${isPaused ? "Played" : "Paused"}`);
 	isPlaying.value = isPaused
+	playerStore.playback = isPaused
 	isPaused ? player.play() : player.pause()
 	if (sync) {
 		console.debug(`Local Playback ${isPaused ? "play" : "pause"} at ${seekTime.value}`);
-		socket.emit("playback", isPaused ? "play" : "pause", seekTime.value)
+		playerStore.setSeek(seekTime.value)
+		socket.emit("playback", isPaused ? "play" : "pause", playerStore.seekStamp)
 	}
 
 	toggleDropdown(null)
 }
-function changeSeek(time: number, sync = true) {
-	seekTime.value = time
-	player.seek(time)
+function changeSeek(seek: number | Seek, sync = true) {
+	playerStore.setSeek(seek)
+	seekTime.value = playerStore.seek
+
+	player.seek(seekTime.value)
 	bufferTime.value = 0
 	if (sync) {
 		console.debug(`Local Seek to ${seekTime.value}`);
-		socket.emit("seek", seekTime.value)
+		socket.emit("seek", playerStore.seekStamp)
 	}
 
 	toggleDropdown(null)
@@ -129,7 +135,8 @@ function changePlaybackRate(rateIndex: number, sync = true) {
 	player.setPlaybackRate(playbackRates.value[playbackRateIndex.value])
 	if (sync) {
 		console.debug(`Local PlaybackRate ${playbackRateIndex.value} at ${seekTime.value}`);
-		socket.emit("playback-rate", playbackRateIndex.value, seekTime.value)
+		playerStore.setSeek(seekTime.value)
+		socket.emit("playback-rate", playbackRateIndex.value, playerStore.seekStamp)
 	}
 
 	toggleDropdown(null)
@@ -240,9 +247,9 @@ function onPlayerInit() {
 	}
 
 	// TODO: changeBuffer(playerStore.buffer,false)
-	isPlaying.value = props.autoplay
-	changeSeek(playerStore.seek, false)
+	togglePlay(props.autoplay, false)
 	changePlaybackRate(playerStore.playbackRate, false)
+	console.log("init", playerStore.seek);
 	changeSeek(playerStore.seek, false)
 
 	isInit.value = true
@@ -282,24 +289,24 @@ function onSocketEpisode(id: string, episode: number) {
 	console.debug(`By ${id} episode changed ${episode}`);
 	changeEpisode(episode, false)
 }
-function onSocketBuffer(id: string, state: "load" | "empty", time: number) {
-	console.debug(`By ${id} Global Buffer ${state} at ${time}`);
+function onSocketBuffer(id: string, state: "load" | "empty", seek: Seek) {
+	console.debug(`By ${id} Global Buffer ${state} at ${seek}`);
 	// changeBuffer(state == "load" )
-	changeSeek(time, false)
+	changeSeek(seek, false)
 }
-function onSocketPlayback(id: string, state: "play" | "pause", time: number) {
-	console.debug(`By ${id} Global Playback ${state} at ${time}`);
+function onSocketPlayback(id: string, state: "play" | "pause", seek: Seek) {
+	console.debug(`By ${id} Global Playback ${state} at ${seek}`);
 	togglePlay(state == "play", false)
-	changeSeek(time, false)
+	changeSeek(seek, false)
 }
-function onSocketPlaybackRate(id: string, rate: number, time: number) {
-	console.debug(`By ${id} Global PlaybackRate ${rate} at ${time}`);
+function onSocketPlaybackRate(id: string, rate: number, seek: Seek) {
+	console.debug(`By ${id} Global PlaybackRate ${rate} at ${seek}`);
 	changePlaybackRate(rate, false)
-	changeSeek(time, false)
+	changeSeek(seek, false)
 }
-function onSocketSeek(id: string, time: number) {
-	console.debug(`By ${id} Global Seek to ${time}`);
-	changeSeek(time, false)
+function onSocketSeek(id: string, seek: Seek) {
+	console.debug(`By ${id} Global Seek to ${seek}`);
+	changeSeek(seek, false)
 }
 function onSocketDisconnect() {
 	console.debug("WebSocket Disconnected");

@@ -3,41 +3,7 @@ import { useMedia } from '~/stores/media';
 import { usePlayer } from '~/stores/player';
 import { useUser } from '~/stores/user';
 import { formatTime } from '~/utils/helpers';
-
-export interface Media {
-	videography: "Live-Action" | "Animation",
-	type: "erotica" | "movie" | "tv-series" | "web-series",
-	id: string,
-	title: string,
-	langs: { subtitle: string[], audio: string[] },
-	genres: string[],
-	description: string,
-	cast: string[],
-	directors: string[],
-	release: { date: string, status: "released" | "upcoming" }
-	episodes: string,
-	production: string,
-	duration: number,
-	rating: number[],
-	views: number
-}
-
-export interface Room {
-	id: string;
-	call: string;
-	chat: {
-		audio: boolean;
-		video: boolean;
-		id: string;
-	}[];
-	player: {
-		episode: number;
-		buffer: "load" | "empty";
-		playback: "play" | "pause";
-		playbackRate: number;
-		seek: number;
-	}
-}
+import { Media, Room } from '~/utils/models';
 
 const config = useRuntimeConfig()
 const route = useRoute()
