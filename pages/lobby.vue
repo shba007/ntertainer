@@ -94,12 +94,13 @@ watchEffect(() => {
 <template>
 	<main class="relative w-screen h-screen">
 		<!-- Loading -->
-		<section v-if="infoPending || roomPending" class="flex flex-col justify-center items-center px-4  text-black">
+		<section v-if="infoPending || roomPending"
+			class="flex flex-col justify-center items-center px-4 h-full text-black">
 			<NuxtIcon name="loader" class="text-5xl" />
 		</section>
 		<!-- Error -->
 		<section v-else-if="infoError || roomError"
-			class="flex flex-col justify-center items-center px-4 text-slate-500 text-center text-lg font-medium">
+			class="flex flex-col justify-center items-center px-4 h-full text-slate-500 text-center text-lg font-medium">
 			<img src="~/assets/image/error.png" />
 			<h2 class="text-2xl mb-4 font-bold">Ooops!</h2>
 			<p v-if="infoError && roomError">
