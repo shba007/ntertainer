@@ -23,7 +23,7 @@ const poster = computed(() => `${config.public.apiURL}/public/${type.value}/${id
 		<NuxtLink :to="`/lobby?type=${type}&id=${id}`"
 			class="relative row-start-1 row-span-2 col-start-1 col-span-2 flex justify-center items-center">
 			<NuxtIcon name="image" class="text-5xl" />
-			<img :src="poster" class="absolute top-0 bottom-0 left-0 right-0 object-cover" />
+			<img :src="poster" alt="poster" class="absolute top-0 bottom-0 left-0 right-0 object-cover" />
 		</NuxtLink>
 		<div
 			class="row-start-2 col-start-1 flex gap-1 justify-center items-center m-[6px] rounded-2xl pl-[6px] pr-2 p py-1 bg-slate-300 z-10">

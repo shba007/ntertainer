@@ -5,7 +5,7 @@ import { Media } from '~/utils/models';
 const config = useRuntimeConfig()
 // FIXME: SpaceBar causes to return prev page only on vivaldi
 // FIXME: Video is flickering during play only on mobile
-// TODO: Add seek and timestamp and calculate seektime
+// FIXME: Player init takes long time
 
 const user = useUser()
 const categories = [
@@ -53,7 +53,7 @@ onBeforeUnmount(() => {
 		<!-- Error -->
 		<section v-else-if="error"
 			class="flex flex-col justify-center items-center px-4 h-full text-slate-500 text-center text-lg font-medium">
-			<img src="~/assets/image/error.png" />
+			<img src="~/assets/image/error.png" alt="error" />
 			<h2 class="text-2xl mb-4 font-bold">Ooops!</h2>
 			<p>
 				It seems that there is something wrong

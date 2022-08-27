@@ -24,7 +24,7 @@ const { pending: roomPending, error: roomError, data: room } = useLazyFetch<Room
 watch(room, (newRoom) => {
 	const { episode, buffer, playback, playbackRate, seek } = newRoom.player
 	player.init(episode, buffer, playback, playbackRate, seek)
-	console.debug(`Room Player Info Episode: ${episode} Buffer: ${buffer} Playback: ${playback} PlaybackRate: ${playbackRate} Seek: ${seek}`);
+	console.debug(`Room Player Info Episode: ${episode} Buffer: ${buffer} Playback: ${playback} PlaybackRate: ${playbackRate} Seek: ${seek.time}`);
 })
 
 const container = ref<HTMLVideoElement>()
@@ -67,7 +67,7 @@ watchEffect(() => {
 		<!-- Error -->
 		<section v-else-if="infoError || roomError"
 			class="flex flex-col justify-center items-center px-4 h-full text-slate-500 text-center text-lg font-medium">
-			<img src="~/assets/image/error.png" />
+			<img src="~/assets/image/error.png" alt="error" />
 			<h2 class="text-2xl mb-4 font-bold">Ooops!</h2>
 			<p v-if="infoError && roomError">
 				It seems that there is something wrong
@@ -80,7 +80,7 @@ watchEffect(() => {
 		<section v-else class="flex flex-col justify-between gap-4 px-4 pb-4 h-full text-black">
 			<div class="relative flex-1 flex justify-center items-center rounded-b-[2rem] bg-slate-200 overflow-hidden">
 				<NuxtIcon name="image" class="text-5xl" />
-				<img :src="poster" class="absolute top-0 bottom-0 left-0 right-0 object-cover" />
+				<img :src="poster" alt="poster" class="absolute top-0 bottom-0 left-0 right-0 object-cover" />
 			</div>
 			<section>
 				<h1 class="text-2xl font-head">{{ info.title }}</h1>

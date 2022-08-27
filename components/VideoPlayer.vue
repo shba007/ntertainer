@@ -247,6 +247,7 @@ function onPlayerInit() {
 	}
 
 	// TODO: changeBuffer(playerStore.buffer,false)
+	changeQuality(0)
 	togglePlay(props.autoplay, false)
 	changePlaybackRate(playerStore.playbackRate, false)
 	console.log("init", playerStore.seek);
