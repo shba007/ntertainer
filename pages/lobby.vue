@@ -10,6 +10,7 @@ const route = useRoute()
 const media = useMedia()
 const user = useUser()
 const player = usePlayer()
+// TODO: SSE ADD
 
 media.init(route.query.type as string, route.query.id as string)
 
@@ -83,17 +84,17 @@ watchEffect(() => {
 				<img :src="poster" alt="poster" class="absolute top-0 bottom-0 left-0 right-0 object-cover" />
 			</div>
 			<section>
-				<h1 class="text-2xl font-head">{{ info.title }}</h1>
+				<h1 class="text-2xl font-head">{{  info.title  }}</h1>
 				<ul class="flex items-center gap-2 text-xs mt-[2px] mb-[10px]">
-					<li>{{ formatTime(info.duration, false) }}</li>
+					<li>{{  formatTime(info.duration, false)  }}</li>
 					&bull;
-					<li><time :datatype="info.release.date">{{ useDateFormat(info.release.date, 'YYYY').value }}</time>
+					<li><time :datatype="info.release.date">{{  useDateFormat(info.release.date, 'YYYY').value  }}</time>
 					</li>
 				</ul>
 				<ul class="flex items-center gap-2 text-[10px]">
 					<li v-for="genre in info.genres.slice(0, 3)" :key="genre"
 						class="rounded-full px-[10px] py-1 text-center bg-slate-300 whitespace-nowrap">
-						{{ genre }}
+						{{  genre  }}
 					</li>
 				</ul>
 			</section>
@@ -128,7 +129,7 @@ watchEffect(() => {
 						<li v-for="microphone in user.microphones"
 							:class="{ 'text-pink-600': microphone.id === user.currentMicrophone.id }"
 							@click="user.setMicrophone(microphone)">
-							{{ microphone.label.length > 28 ? microphone.label.slice(0, 28) + '...' : microphone.label
+							{{  microphone.label.length > 28 ? microphone.label.slice(0, 28) + '...' : microphone.label 
 							}}
 						</li>
 					</ul>
@@ -137,7 +138,7 @@ watchEffect(() => {
 						<li v-for="camera in user.cameras"
 							:class="{ 'text-pink-600': camera.id === user.currentCamera.id }"
 							@click="user.setCamera(camera)">
-							{{ camera.label }}
+							{{  camera.label  }}
 						</li>
 					</ul>
 				</dialog>

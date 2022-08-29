@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { useClamp } from '@vueuse/math'
-import { isNumber } from '@vueuse/core';
+import { isNumber } from '@vueuse/shared';
 import { useMedia } from '~/stores/media';
 import { usePlayer } from '~/stores/player';
 import { formatTime } from '~/utils/helpers'
+import { Seek } from '~/utils/models';
 import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
-import { Seek } from '../utils/models';
 
 const { $player: player, $playerSocket } = useNuxtApp()
 const socket = $playerSocket()
@@ -81,6 +80,13 @@ const tracks = computed(() => {
 const poster = computed(() => `${config.public.apiURL}/public/${props.type}/${props.id}/Landscape.avif`)
 const src = computed(() => `${config.public.apiURL}/public/${props.type}/${props.id}/${props.episode}/manifest.mpd`)
 
+const debugInfo = ref({
+	bitrate: { reported: undefined, calculated: undefined },
+	buffer: undefined,
+	framerate: undefined,
+	resolution: { width: undefined, height: undefined }
+})
+
 function changeEpisode(episode: "prev" | "next" | number, sync = true) {
 	let newEpisode = isNumber(episode) ? episode : props.episode;
 	if (!isNumber(episode))
@@ -105,11 +111,11 @@ function changeBuffer(state: boolean, sync = true) {
 
 function togglePlay(isPaused = player.isPaused(), sync = true) {
 	console.debug(`Video is ${isPaused ? "Played" : "Paused"}`);
-	isPlaying.value = isPaused
-	playerStore.playback = isPaused
 	isPaused ? player.play() : player.pause()
+	isPlaying.value = isPaused
 	if (sync) {
 		console.debug(`Local Playback ${isPaused ? "play" : "pause"} at ${seekTime.value}`);
+		playerStore.playback = isPlaying.value ? "play" : "pause"
 		playerStore.setSeek(seekTime.value)
 		socket.emit("playback", isPaused ? "play" : "pause", playerStore.seekStamp)
 	}
@@ -246,12 +252,15 @@ function onPlayerInit() {
 		qualities.value.push(`${info.height.toString()}p`)
 	}
 
+	const settings = player.getSettings()
+	settings.streaming.buffer.stableBufferTime = 120
+	settings.streaming.buffer.bufferTimeAtTopQuality = 180
+	player.updateSettings(settings)
+
 	// TODO: changeBuffer(playerStore.buffer,false)
-	changeQuality(0)
 	togglePlay(props.autoplay, false)
 	changePlaybackRate(playerStore.playbackRate, false)
-	console.log("init", playerStore.seek);
-	changeSeek(playerStore.seek, false)
+	changeSeek(playerStore.seekStamp, false)
 
 	isInit.value = true
 }
@@ -282,6 +291,35 @@ function onQualityChange(event: QualityChangeRequestedEvent) {
 	}
 }
 
+// Debug info
+const { pause, resume, isActive: debugMode } = useIntervalFn(() => {
+	// TODO: debug info
+	const streamInfo = player.getActiveStream().getStreamInfo();
+	const dashAdapter = player.getDashAdapter();
+	const dashMetrics = player.getDashMetrics();
+
+	const periodIdx = streamInfo.index;
+	const repSwitch = dashMetrics.getCurrentRepresentationSwitch('video')
+
+	debugInfo.value.bitrate.reported = repSwitch ? Math.round(dashAdapter.getBandwidthForRepresentation((repSwitch as any).to, periodIdx) / 1000) : NaN;
+	debugInfo.value.buffer = dashMetrics.getCurrentBufferLevel('video')
+
+	// TODO: adaptation type dashAdapter
+	const adaptation = (dashAdapter as any).getAdaptationForType(periodIdx, 'video', streamInfo);
+	const currentRep = adaptation?.Representation_asArray.find((rep) => {
+		return rep.id === (repSwitch as any).to
+	})
+
+	debugInfo.value.framerate = currentRep.frameRate;
+	debugInfo.value.resolution = { width: currentRep.width, height: currentRep.height }
+
+}, 500)
+pause()
+
+function toggleDebugMode() {
+	debugMode.value ? pause() : resume()
+}
+
 // WebSocket Life Cycle Hooks
 function onSocketConnect() {
 	console.debug("WebSocket Connected", socket.id);
@@ -296,7 +334,7 @@ function onSocketBuffer(id: string, state: "load" | "empty", seek: Seek) {
 	changeSeek(seek, false)
 }
 function onSocketPlayback(id: string, state: "play" | "pause", seek: Seek) {
-	console.debug(`By ${id} Global Playback ${state} at ${seek}`);
+	console.debug(`By ${id} Global Playback ${state} at ${seek.time}`);
 	togglePlay(state == "play", false)
 	changeSeek(seek, false)
 }
@@ -367,7 +405,7 @@ onBeforeUnmount(() => {
 			@click.self="toggleUserControls">
 			<div
 				class="row-start-1 col-start-1 col-span-2 invisible landscape:visible justify-start self-start text-xl font-head">
-				{{ media.title }}
+				{{  media.title  }}
 			</div>
 			<div class="row-start-1 col-start-3 justify-end self-start flex items-center gap-6">
 				<NuxtIcon name="cast" class="text-[2rem] cursor-pointer" />
@@ -388,7 +426,7 @@ onBeforeUnmount(() => {
 					class="hidden landscape:inline text-[2rem] cursor-pointer" @click="toggleVolume()" />
 				<Slider :max="100" :tracks="[{ value: Number(!isMuted) * volume, color: 'bg-slate-200' }]"
 					@update:tracks="changeVolume" class="hidden landscape:flex w-24" />
-				<span class="font-mono">{{ formatTime(seekTime) }} / {{ formatTime(duration) }}</span>
+				<span class="font-mono">{{  formatTime(seekTime)  }} / {{  formatTime(duration)  }}</span>
 			</div>
 			<div class="row-start-3 col-start-3 justify-end self-end flex items-center gap-6">
 				<NuxtIcon :name="isSubtitle ? 'subtitle' : 'subtitle-off'"
@@ -400,7 +438,7 @@ onBeforeUnmount(() => {
 					class="text-[2rem] cursor-pointer" />
 			</div>
 			<dialog :open="dropdown !== null"
-				class="pc:left-auto pc:right-6 top-1/2 mobile:top-1/2 pc:top-auto pc:bottom-0 -translate-y-[calc(50%+1.25rem)] pc:-translate-y-[4.5rem] px-0 py-1 w-56 bg-slate-200 rounded-md shadow-lg">
+				class="pc:left-auto pc:right-6 top-1/2 pc:top-auto pc:bottom-0 -translate-y-[calc(50%+1.25rem)] pc:-translate-y-[4.5rem] px-0 py-1 w-56 h-48 bg-slate-200 rounded-md shadow-lg overflow-y-auto">
 				<ul v-if="dropdown === 'video'" class="drop-down flex flex-col">
 					<li @click="toggleDropdown(null)">
 						<div>
@@ -421,32 +459,62 @@ onBeforeUnmount(() => {
 							<NuxtIcon name="speed" class="text-2xl" />
 							<span>Playback</span>
 						</div>
-						<span>{{ playbackRates[playbackRateIndex] }}x</span>
+						<span>{{  playbackRates[playbackRateIndex]  }}x</span>
 					</li>
 					<li @click="toggleDropdown('video-resolution')">
 						<div>
 							<NuxtIcon name="downscale" class="text-2xl" />
 							<span>Resolution</span>
 						</div>
-						<span>{{ isAuto ? 'Auto' : '' }} {{ qualities[qualityIndex] }}</span>
+						<span>{{  isAuto ? 'Auto' : ''  }} {{  qualities[qualityIndex]  }}</span>
+					</li>
+					<li @click="() => { toggleDropdown(null); toggleDebugMode() }">
+						<div>
+							<NuxtIcon name="stats" class="text-2xl" />
+							<span>DebugMode</span>
+						</div>
+						<span>{{  debugMode ? 'On' : 'Off'  }}</span>
 					</li>
 				</ul>
 				<ul v-else-if="dropdown === 'video-playback'" class="drop-down flex-col">
 					<li v-for="(playbackRate, currentPlaybackRateIndex) in playbackRates"
 						:class="{ 'highlight': currentPlaybackRateIndex === playbackRateIndex }"
 						@click="changePlaybackRate(currentPlaybackRateIndex)">
-						{{ playbackRate }}
+						{{  playbackRate  }}
 					</li>
 				</ul>
 				<ul v-else-if="dropdown === 'video-resolution'" class="drop-down flex flex-col-reverse">
 					<li v-for="(resolution, currentResolutionIndex) in ['Auto', ...qualities]"
 						:class="{ 'highlight': isAuto ? resolution === 'Auto' : currentResolutionIndex - 1 === qualityIndex }"
 						@click="changeQuality(currentResolutionIndex - 1)">
-						{{ resolution }}
+						{{  resolution  }}
 					</li>
 				</ul>
 			</dialog>
 		</section>
+		<dialog :open="debugMode"
+			class="absolute top-2 left-2 m-0 px-4 py-2 w-fit text-xs text-white bg-slate-600/40 rounded-md shadow-lg">
+			<div>
+				<label for="reportedBitrate">Reported bitrate: </label>
+				<span>{{  debugInfo.bitrate.reported  }} Kbps</span>
+			</div>
+			<div>
+				<label for="calculatedBitrate">Calculated bitrate: </label>
+				<span>{{  debugInfo.bitrate.calculated  }} Kbps</span>
+			</div>
+			<div>
+				<label for="buffer">Buffer level: </label>
+				<span>{{  debugInfo.buffer  }} secs</span>
+			</div>
+			<div>
+				<label for="framerate">Framerate: </label>
+				<span>{{  debugInfo.framerate  }} fps</span>
+			</div>
+			<div>
+				<label for="resolution">Resolution: </label>
+				<span>{{  debugInfo.resolution.width  }}x{{  debugInfo.resolution.height  }}</span>
+			</div>
+		</dialog>
 	</main>
 </template>
 

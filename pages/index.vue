@@ -5,7 +5,8 @@ import { Media } from '~/utils/models';
 const config = useRuntimeConfig()
 // FIXME: SpaceBar causes to return prev page only on vivaldi
 // FIXME: Video is flickering during play only on mobile
-// FIXME: Player init takes long time
+// FIXME: Player init takes long time, seekStamp fix when not playing
+// TODO: Store media in buffer
 
 const user = useUser()
 const categories = [
@@ -35,7 +36,7 @@ function changeCategory(category: number) {
 }
 
 // FIXME: enable/disable streaming depending on route
-onBeforeMount(async () => {
+onBeforeMount(() => {
 	user.disableStreaming()
 })
 

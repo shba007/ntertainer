@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia';
+import { useNow } from '@vueuse/core'
 import { Seek } from '~/utils/models';
+
+const now = useNow()
 
 export const usePlayer = defineStore('player', {
 	state: () => ({
@@ -11,7 +14,7 @@ export const usePlayer = defineStore('player', {
 		timeStamp: null
 	}),
 	getters: {
-		seek: (state) => state.seekTime + (new Date().getTime() / 1000 - state.timeStamp),
+		seek: (state) => state.seekTime + (now.value.getTime() / 1000 - state.timeStamp) * Number(state.playback == "play"),
 		seekStamp: (state) => ({ time: state.seekTime, timestamp: state.timeStamp })
 	},
 	actions: {
@@ -25,7 +28,7 @@ export const usePlayer = defineStore('player', {
 		setSeek(seek: number | Seek) {
 			if (typeof seek === "number") {
 				this.seekTime = seek
-				this.timeStamp = new Date().getTime() / 1000
+				this.timeStamp = now.value.getTime() / 1000
 			} else {
 				this.seekTime = seek.time
 				this.timeStamp = seek.timestamp
