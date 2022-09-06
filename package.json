@@ -8,6 +8,7 @@
 		"clean": "nuxt clean"
 	},
 	"devDependencies": {
+		"@kevinmarrec/nuxt-pwa": "^0.4.2",
 		"@nuxtjs/tailwindcss": "^5.3.2",
 		"@pinia/nuxt": "^0.4.1",
 		"@vueuse/core": "^9.1.1",

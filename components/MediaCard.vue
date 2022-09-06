@@ -35,13 +35,13 @@ const poster = computed(() => `${config.public.apiURL}/public/${type.value}/${id
 			<span class="text-[10px]">|</span>
 			<span class="text-[10px]">{{ views }}</span>
 		</div>
-		<div class="relative col-span-2 rounded-tr-3xl p-2 text-white bg-pink-600 z-10">
+		<div class="relative col-span-2 rounded-tr-3xl p-2 text-white bg-sky-500 z-10">
 			<span>{{ trim(title, 13) }}</span>
 			<ul class="flex gap-1 mt-0 mb-1 text-[10px]">
 				<li>{{ useDateFormat(release.date, 'YYYY').value }}</li>
-				&middot;
+				<li>&middot;</li>
 				<li>S {{ seriesId }}</li>
-				&middot;
+				<li>&middot;</li>
 				<li>{{ isSequel ? formatTime(duration, false) : `Episodes ${episodes.length}` }}</li>
 			</ul>
 			<!-- TODO: Horizontal Scrollable -->

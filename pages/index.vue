@@ -52,7 +52,7 @@ onBeforeUnmount(() => {
 		</header>
 		<ul class="flex justify-between">
 			<li v-for="(category, index) in categories" class="rounded-full px-3 py-1 text-xs cursor-pointer"
-				:class="[selectedCategory == index ? 'bg-pink-600 text-white' : 'bg-slate-300 text-black']"
+				:class="[selectedCategory == index ? 'bg-sky-500 text-white' : 'bg-slate-300 text-black']"
 				@click="changeCategory(index)">
 				{{ category.title }}
 			</li>

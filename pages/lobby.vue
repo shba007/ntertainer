@@ -117,7 +117,7 @@ watchEffect(() => {
 				<ul>
 					<li class="text-center text-lg font-medium">Microphone</li>
 					<li v-for="microphone in user.microphones"
-						:class="{ 'text-pink-600': microphone.id === user.currentMicrophone.id }"
+						:class="{ 'text-sky-500': microphone.id === user.currentMicrophone.id }"
 						@click="user.setMicrophone(microphone)">
 						{{ microphone.label.length > 28 ? microphone.label.slice(0, 28) + '...' : microphone.label
 						}}
@@ -125,8 +125,7 @@ watchEffect(() => {
 				</ul>
 				<ul>
 					<li class="text-center text-lg font-medium">Camera</li>
-					<li v-for="camera in 	user.cameras"
-						:class="{ 'text-pink-600': camera.id === user.currentCamera.id }"
+					<li v-for="camera in user.cameras" :class="{ 'text-sky-500': camera.id === user.currentCamera.id }"
 						@click="user.setCamera(camera)">
 						{{ camera.label }}
 					</li>
@@ -134,13 +133,13 @@ watchEffect(() => {
 			</dialog>
 		</section>
 		<section class="flex">
-			<div v-for="(participant, index) in 	participants" class="rounded-full p-[6px] bg-slate-300 overflow-hidden"
+			<div v-for="(participant, index) in participants" class="rounded-full p-[6px] bg-slate-300 overflow-hidden"
 				:class="{ '-ml-6': index !== 0 }">
 				<img :src="participant.avatar" :alt="participant.id" class="w-12 md:w-14 lg:w-20 aspect-square" />
 			</div>
 		</section>
 		<NuxtLink to="/watch"
-			class="fixed bottom-0 right-0 flex gap-[6px] items-center rounded-tl-full pl-7 pr-6 pt-3 pb-2 text-white bg-pink-600">
+			class="fixed bottom-0 right-0 flex gap-[6px] items-center rounded-tl-full pl-7 pr-6 pt-3 pb-2 text-white bg-sky-500">
 			<NuxtIcon name="plus" class="text-2xl" />Join
 		</NuxtLink>
 	</PageState>
