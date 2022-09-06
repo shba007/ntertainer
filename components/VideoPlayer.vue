@@ -292,7 +292,7 @@ function onQualityChange(event: QualityChangeRequestedEvent) {
 }
 
 // Debug info
-const { pause, resume, isActive: debugMode } = useIntervalFn(() => {
+const { pause: pauseDebug, resume: resumeDebug, isActive: debugMode } = useIntervalFn(() => {
 	// TODO: debug info
 	const streamInfo = player.getActiveStream().getStreamInfo();
 	const dashAdapter = player.getDashAdapter();
@@ -314,10 +314,10 @@ const { pause, resume, isActive: debugMode } = useIntervalFn(() => {
 	debugInfo.value.resolution = { width: currentRep.width, height: currentRep.height }
 
 }, 500)
-pause()
+pauseDebug()
 
 function toggleDebugMode() {
-	debugMode.value ? pause() : resume()
+	debugMode.value ? pauseDebug() : resumeDebug()
 }
 
 // WebSocket Life Cycle Hooks
@@ -397,7 +397,8 @@ onBeforeUnmount(() => {
 		<div v-if="isInit && controls" class="absolute w-full h-full bg-gradient-to-t backdrop-gradient" />
 		<div v-if="isInit && isBuffering"
 			class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
-			<NuxtIcon name="loader" class="text-7xl animate-spin" />
+			<NuxtIcon name="loader" class="text-7xl" />
+			<!-- <NuxtRive name="loader" :size="128" /> -->
 		</div>
 		<section v-if="isInit"
 			class="relative top-1/2 grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full -translate-y-1/2 transition-[height_opacity] duration-300 ease-out"
@@ -405,7 +406,7 @@ onBeforeUnmount(() => {
 			@click.self="toggleUserControls">
 			<div
 				class="row-start-1 col-start-1 col-span-2 invisible landscape:visible justify-start self-start text-xl font-head">
-				{{  media.title  }}
+				{{ media.title }}
 			</div>
 			<div class="row-start-1 col-start-3 justify-end self-start flex items-center gap-6">
 				<NuxtIcon name="cast" class="text-[2rem] cursor-pointer" />
@@ -426,7 +427,7 @@ onBeforeUnmount(() => {
 					class="hidden landscape:inline text-[2rem] cursor-pointer" @click="toggleVolume()" />
 				<Slider :max="100" :tracks="[{ value: Number(!isMuted) * volume, color: 'bg-slate-200' }]"
 					@update:tracks="changeVolume" class="hidden landscape:flex w-24" />
-				<span class="font-mono">{{  formatTime(seekTime)  }} / {{  formatTime(duration)  }}</span>
+				<span class="font-mono">{{ formatTime(seekTime) }} / {{ formatTime(duration) }}</span>
 			</div>
 			<div class="row-start-3 col-start-3 justify-end self-end flex items-center gap-6">
 				<NuxtIcon :name="isSubtitle ? 'subtitle' : 'subtitle-off'"
@@ -459,35 +460,35 @@ onBeforeUnmount(() => {
 							<NuxtIcon name="speed" class="text-2xl" />
 							<span>Playback</span>
 						</div>
-						<span>{{  playbackRates[playbackRateIndex]  }}x</span>
+						<span>{{ playbackRates[playbackRateIndex] }}x</span>
 					</li>
 					<li @click="toggleDropdown('video-resolution')">
 						<div>
 							<NuxtIcon name="downscale" class="text-2xl" />
 							<span>Resolution</span>
 						</div>
-						<span>{{  isAuto ? 'Auto' : ''  }} {{  qualities[qualityIndex]  }}</span>
+						<span>{{ isAuto ? 'Auto' : '' }} {{ qualities[qualityIndex] }}</span>
 					</li>
 					<li @click="() => { toggleDropdown(null); toggleDebugMode() }">
 						<div>
 							<NuxtIcon name="stats" class="text-2xl" />
 							<span>DebugMode</span>
 						</div>
-						<span>{{  debugMode ? 'On' : 'Off'  }}</span>
+						<span>{{ debugMode ? 'On' : 'Off' }}</span>
 					</li>
 				</ul>
 				<ul v-else-if="dropdown === 'video-playback'" class="drop-down flex-col">
 					<li v-for="(playbackRate, currentPlaybackRateIndex) in playbackRates"
 						:class="{ 'highlight': currentPlaybackRateIndex === playbackRateIndex }"
 						@click="changePlaybackRate(currentPlaybackRateIndex)">
-						{{  playbackRate  }}
+						{{ playbackRate }}
 					</li>
 				</ul>
 				<ul v-else-if="dropdown === 'video-resolution'" class="drop-down flex flex-col-reverse">
 					<li v-for="(resolution, currentResolutionIndex) in ['Auto', ...qualities]"
 						:class="{ 'highlight': isAuto ? resolution === 'Auto' : currentResolutionIndex - 1 === qualityIndex }"
 						@click="changeQuality(currentResolutionIndex - 1)">
-						{{  resolution  }}
+						{{ resolution }}
 					</li>
 				</ul>
 			</dialog>
@@ -496,23 +497,23 @@ onBeforeUnmount(() => {
 			class="absolute top-2 left-2 m-0 px-4 py-2 w-fit text-xs text-white bg-slate-600/40 rounded-md shadow-lg">
 			<div>
 				<label for="reportedBitrate">Reported bitrate: </label>
-				<span>{{  debugInfo.bitrate.reported  }} Kbps</span>
+				<span>{{ debugInfo.bitrate.reported }} Kbps</span>
 			</div>
 			<div>
 				<label for="calculatedBitrate">Calculated bitrate: </label>
-				<span>{{  debugInfo.bitrate.calculated  }} Kbps</span>
+				<span>{{ debugInfo.bitrate.calculated }} Kbps</span>
 			</div>
 			<div>
 				<label for="buffer">Buffer level: </label>
-				<span>{{  debugInfo.buffer  }} secs</span>
+				<span>{{ debugInfo.buffer }} secs</span>
 			</div>
 			<div>
 				<label for="framerate">Framerate: </label>
-				<span>{{  debugInfo.framerate  }} fps</span>
+				<span>{{ debugInfo.framerate }} fps</span>
 			</div>
 			<div>
 				<label for="resolution">Resolution: </label>
-				<span>{{  debugInfo.resolution.width  }}x{{  debugInfo.resolution.height  }}</span>
+				<span>{{ debugInfo.resolution.width }}x{{ debugInfo.resolution.height }}</span>
 			</div>
 		</dialog>
 	</main>

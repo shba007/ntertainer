@@ -13,12 +13,13 @@
 		"@vueuse/core": "^9.1.1",
 		"@vueuse/math": "^9.1.1",
 		"@vueuse/nuxt": "^9.1.1",
-		"nuxt": "^3.0.0-rc.8",
+		"nuxt": "^3.0.0-rc.9",
 		"nuxt-icons": "^2.0.1",
 		"pinia": "^2.0.21"
 	},
 	"dependencies": {
+		"@rive-app/canvas": "^1.0.83",
 		"dashjs": "^4.4.1",
-		"socket.io-client": "^4.5.1"
+		"socket.io-client": "^4.5.2"
 	}
 }

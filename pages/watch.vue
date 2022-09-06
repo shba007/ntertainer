@@ -3,6 +3,10 @@ import { useMedia } from '~/stores/media';
 import { usePlayer } from '~/stores/player';
 import { Participant } from '~/utils/models';
 
+useHead({
+	title: "Ntertainer - Watch"
+})
+
 const media = useMedia()
 const player = usePlayer()
 const container = ref<HTMLElement>(null)

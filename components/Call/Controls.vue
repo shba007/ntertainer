@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { useUser } from '../../stores/user';
+import { useUser } from '~/stores/user';
+
 const props = defineProps({
 	side: {
 		type: Boolean,
@@ -8,7 +9,7 @@ const props = defineProps({
 })
 
 const user = useUser()
-
+// TODO: Disconnect
 function disconnect() {
 }
 </script>
