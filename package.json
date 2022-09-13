@@ -9,17 +9,17 @@
 	},
 	"devDependencies": {
 		"@kevinmarrec/nuxt-pwa": "^0.4.2",
-		"@nuxtjs/tailwindcss": "^5.3.2",
-		"@pinia/nuxt": "^0.4.1",
-		"@vueuse/core": "^9.1.1",
-		"@vueuse/math": "^9.1.1",
-		"@vueuse/nuxt": "^9.1.1",
+		"@nuxtjs/tailwindcss": "^5.3.3",
+		"@pinia/nuxt": "^0.4.2",
+		"@vueuse/core": "^9.2.0",
+		"@vueuse/math": "^9.2.0",
+		"@vueuse/nuxt": "^9.2.0",
 		"nuxt": "^3.0.0-rc.9",
-		"nuxt-icons": "^2.0.1",
-		"pinia": "^2.0.21"
+		"nuxt-icons": "^2.0.2",
+		"pinia": "^2.0.22"
 	},
 	"dependencies": {
-		"@rive-app/canvas": "^1.0.83",
+		"@rive-app/canvas": "^1.0.84",
 		"dashjs": "^4.4.1",
 		"socket.io-client": "^4.5.2"
 	}

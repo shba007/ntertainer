@@ -45,7 +45,7 @@ const bufferTime = ref(0)
 const isPlaying = ref(false)
 const seekTime = ref(0)
 
-const playbackRates = ref([0.5, 0.75, 1, 1.25, 2])
+const playbackRates = ref([0.5, 0.75, 1, 1.25, 1.5, 2])
 const playbackRateIndex = ref(2)
 
 const isAuto = ref(true)
@@ -55,10 +55,15 @@ const qualityIndex = ref(0)
 const isMuted = ref(false)
 const volume = ref(70)
 
+const languages = ref(['Hindi', 'English'])
+const languageIndex = ref(0)
+const subtitles = ref(['Hindi', 'English'])
+const subtitleIndex = ref(1)
+const isSubtitle = ref(false)
+
 const duration = ref(0)
 const dropdown = ref<string>(null)
 
-const isSubtitle = ref(false)
 const { isFullscreen } = useFullscreen(container)
 
 const userControls = ref(false)
@@ -98,6 +103,8 @@ function changeEpisode(episode: "prev" | "next" | number, sync = true) {
 		console.debug(`Local Episode playing ${newEpisode}`);
 		socket.emit("episode", newEpisode)
 	}
+
+	toggleDropdown(null)
 }
 
 function changeBuffer(state: boolean, sync = true) {
@@ -149,6 +156,7 @@ function changePlaybackRate(rateIndex: number, sync = true) {
 }
 
 function changeQuality(currentResolutionIndex: number) {
+	currentResolutionIndex -= 1
 	isAuto.value = currentResolutionIndex === -1
 
 	const settings = player.getSettings()
@@ -182,20 +190,30 @@ function changeVolume(value: number) {
 	toggleDropdown(null)
 }
 
-function toggleSubtitle() {
-	isSubtitle.value = !isSubtitle.value
+function changeSubtitle(currentSubtitleIndex: number) {
+	isSubtitle.value = Boolean(currentSubtitleIndex)
 	player.enableText(isSubtitle.value)
-}
-function changeSubtitle(lang: string) {
-	player.setInitialMediaSettingsFor('text', { lang: lang, role: 'subtitle' });
+
+	if (isSubtitle.value === true) {
+		subtitleIndex.value = currentSubtitleIndex - 1
+		const lang = { English: 'en', Hindi: 'hi' }[languages.value[subtitleIndex.value]]
+		player.setInitialMediaSettingsFor('text', { lang, role: 'subtitle' });
+		console.log(lang);
+	}
+
+	toggleDropdown(null)
 }
 
 function toggleFullscreen() {
 	emits("update:fullscreen")
+
+	toggleDropdown(null)
 }
 
 function toggleUserControls() {
 	userControls.value = !userControls.value
+
+	toggleDropdown(null)
 }
 
 function toggleDropdown(type: string | null) {
@@ -261,6 +279,7 @@ function onPlayerInit() {
 	togglePlay(props.autoplay, false)
 	changePlaybackRate(playerStore.playbackRate, false)
 	changeSeek(playerStore.seekStamp, false)
+	changeSubtitle(isSubtitle.value ? subtitleIndex.value : 0)
 
 	isInit.value = true
 }
@@ -316,8 +335,10 @@ const { pause: pauseDebug, resume: resumeDebug, isActive: debugMode } = useInter
 }, 500)
 pauseDebug()
 
-function toggleDebugMode() {
-	debugMode.value ? pauseDebug() : resumeDebug()
+function toggleDebugMode(mode: Number | Boolean) {
+	!!mode ? resumeDebug() : pauseDebug()
+
+	toggleDropdown(null)
 }
 
 // WebSocket Life Cycle Hooks
@@ -398,7 +419,6 @@ onBeforeUnmount(() => {
 		<div v-if="isInit && isBuffering"
 			class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-[calc(50%+1.25rem)]">
 			<NuxtIcon name="loader" class="text-7xl" />
-			<!-- <NuxtRive name="loader" :size="128" /> -->
 		</div>
 		<section v-if="isInit"
 			class="relative top-1/2 grid grid-rows-[min-content_auto_min-content] grid-cols-3 gap-y-2 px-2 md:px-6 py-3 w-full -translate-y-1/2 transition-[height_opacity] duration-300 ease-out"
@@ -418,80 +438,36 @@ onBeforeUnmount(() => {
 			</div>
 			<div
 				class="absolute -left-1 -right-1 -bottom-1 landscape:relative row-start-3 landscape:row-start-2 col-start-1 col-span-3 self-end">
-				<Slider :max="duration" :tracks="tracks" @update:tracks="changeSeek" />
+				<VideoSlider :max="duration" :tracks="tracks" @update:tracks="changeSeek" />
 			</div>
 			<div class="row-start-3 col-start-1 col-span-2 justify-start self-end flex items-center gap-4">
 				<VideoControls class="hidden pc:inline" :playback="isPlaying" @update:playback="togglePlay"
 					@update:episode="changeEpisode" />
 				<NuxtIcon :name="isMuted ? 'volume-muted' : 'volume-full'"
 					class="hidden landscape:inline text-[2rem] cursor-pointer" @click="toggleVolume()" />
-				<Slider :max="100" :tracks="[{ value: Number(!isMuted) * volume, color: 'bg-slate-200' }]"
+				<VideoSlider :max="100" :tracks="[{ value: Number(!isMuted) * volume, color: 'bg-slate-200' }]"
 					@update:tracks="changeVolume" class="hidden landscape:flex w-24" />
 				<span class="font-mono">{{ formatTime(seekTime) }} / {{ formatTime(duration) }}</span>
 			</div>
 			<div class="row-start-3 col-start-3 justify-end self-end flex items-center gap-6">
-				<NuxtIcon :name="isSubtitle ? 'subtitle' : 'subtitle-off'"
-					class="invisible landscape:visible text-[2rem] cursor-pointer" @click="toggleSubtitle" />
-				<NuxtIcon name="sound-settings" class="invisible landscape:visible text-[2rem] cursor-pointer" />
-				<NuxtIcon name="video-settings" class="invisible landscape:visible text-[2rem] cursor-pointer"
-					@click="toggleDropdown('video')" />
+				<!-- <NuxtIcon :name="isSubtitle ? 'subtitle' : 'subtitle-off'" class="invisible landscape:visible text-[2rem] cursor-pointer" @click="toggleSubtitle" /> -->
+				<!-- <NuxtIcon name="sound-settings" class="invisible landscape:visible text-[2rem] cursor-pointer" /> -->
+				<NuxtIcon name="gear" class="invisible landscape:visible text-[2rem] cursor-pointer"
+					@click="toggleDropdown('settings')" />
 				<NuxtIcon :name="isFullscreen ? 'screen-min' : 'screen-max'" @click="toggleFullscreen"
 					class="text-[2rem] cursor-pointer" />
 			</div>
-			<dialog :open="dropdown !== null"
-				class="pc:left-auto pc:right-6 top-1/2 pc:top-auto pc:bottom-0 -translate-y-[calc(50%+1.25rem)] pc:-translate-y-[4.5rem] px-0 py-1 w-56 h-48 bg-slate-200 rounded-md shadow-lg overflow-y-auto">
-				<ul v-if="dropdown === 'video'" class="drop-down flex flex-col">
-					<li @click="toggleDropdown(null)">
-						<div>
-							<NuxtIcon name="keyframes" class="text-2xl" />
-							<span>FPS</span>
-						</div>
-						<span>24 fps</span>
-					</li>
-					<li @click="toggleDropdown(null)">
-						<div>
-							<NuxtIcon name="mountain" class="text-2xl" />
-							<span>Color</span>
-						</div>
-						<span>SDR</span>
-					</li>
-					<li @click="toggleDropdown('video-playback')">
-						<div>
-							<NuxtIcon name="speed" class="text-2xl" />
-							<span>Playback</span>
-						</div>
-						<span>{{ playbackRates[playbackRateIndex] }}x</span>
-					</li>
-					<li @click="toggleDropdown('video-resolution')">
-						<div>
-							<NuxtIcon name="downscale" class="text-2xl" />
-							<span>Resolution</span>
-						</div>
-						<span>{{ isAuto ? 'Auto' : '' }} {{ qualities[qualityIndex] }}</span>
-					</li>
-					<li @click="() => { toggleDropdown(null); toggleDebugMode() }">
-						<div>
-							<NuxtIcon name="stats" class="text-2xl" />
-							<span>DebugMode</span>
-						</div>
-						<span>{{ debugMode ? 'On' : 'Off' }}</span>
-					</li>
-				</ul>
-				<ul v-else-if="dropdown === 'video-playback'" class="drop-down flex-col">
-					<li v-for="(playbackRate, currentPlaybackRateIndex) in playbackRates"
-						:class="{ 'highlight': currentPlaybackRateIndex === playbackRateIndex }"
-						@click="changePlaybackRate(currentPlaybackRateIndex)">
-						{{ playbackRate }}
-					</li>
-				</ul>
-				<ul v-else-if="dropdown === 'video-resolution'" class="drop-down flex flex-col-reverse">
-					<li v-for="(resolution, currentResolutionIndex) in ['Auto', ...qualities]"
-						:class="{ 'highlight': isAuto ? resolution === 'Auto' : currentResolutionIndex - 1 === qualityIndex }"
-						@click="changeQuality(currentResolutionIndex - 1)">
-						{{ resolution }}
-					</li>
-				</ul>
-			</dialog>
+			<VideoMenu v-model:dropdown="dropdown" :color="{value:['SDR', 'HDR'][0], index:0, options:['SDR','HDR']}"
+				@update:color=""
+				:resolution="{value:`${isAuto ? 'Auto': ''} ${qualities[qualityIndex]}`, index:isAuto ? 0 : qualityIndex + 1, options:['Auto', ...qualities]}"
+				@update:resolution="changeQuality"
+				:playbackRate="{value:`${playbackRates[playbackRateIndex]}x`, index:playbackRateIndex , options:playbackRates}"
+				@update:playbackRate="changePlaybackRate"
+				:language="{value:languages[languageIndex], index:languageIndex, options:languages}" @update:language=""
+				:subtitle="{value:isSubtitle ? subtitles[subtitleIndex]: 'Off', index:isSubtitle ? subtitleIndex + 1 : 0, options:['Off', ...subtitles]}"
+				@update:subtitle="changeSubtitle"
+				:debug="{value:['Off','On'][Number(debugMode)],index:Number(debugMode),options:['Off','On']}"
+				@update:debug="toggleDebugMode" />
 		</section>
 		<dialog :open="debugMode"
 			class="absolute top-2 left-2 m-0 px-4 py-2 w-fit text-xs text-white bg-slate-600/40 rounded-md shadow-lg">
@@ -519,24 +495,12 @@ onBeforeUnmount(() => {
 	</main>
 </template>
 
-<style>
+<style scoped>
 main {
 	color: white;
 }
 
 main>div.backdrop-gradient {
 	--tw-gradient-stops: rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0) 80%, rgba(0, 0, 0, 0.3) 100%;
-}
-
-dialog>.drop-down>li {
-	@apply flex justify-between items-center px-4 py-3 text-xs cursor-pointer;
-}
-
-dialog>.drop-down>li.highlight {
-	@apply bg-blue-400 text-white;
-}
-
-dialog>.drop-down>li>div {
-	@apply flex items-center gap-2;
 }
 </style>

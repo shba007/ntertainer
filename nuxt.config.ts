@@ -29,8 +29,5 @@ export default defineNuxtConfig({
 			ogHost: "https://ntertainer.netlify.app",
 			twitterCard: "summary",
 		},
-		workbox: {
-			enabled: true,
-		},
 	},
 });

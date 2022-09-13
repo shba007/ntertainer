@@ -2,7 +2,7 @@
 import { useMedia } from '~/stores/media';
 import { usePlayer } from '~/stores/player';
 import { useUser } from '~/stores/user';
-import { formatTime } from '~/utils/helpers';
+import { formatTime, trim } from '~/utils/helpers';
 import { Media, Room } from '~/utils/models';
 
 useHead({
@@ -119,8 +119,7 @@ watchEffect(() => {
 					<li v-for="microphone in user.microphones"
 						:class="{ 'text-sky-500': microphone.id === user.currentMicrophone.id }"
 						@click="user.setMicrophone(microphone)">
-						{{ microphone.label.length > 28 ? microphone.label.slice(0, 28) + '...' : microphone.label
-						}}
+						{{ trim(microphone.label,28)}}
 					</li>
 				</ul>
 				<ul>
