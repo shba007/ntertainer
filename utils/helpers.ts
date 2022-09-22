@@ -28,4 +28,15 @@ function trim(str: string, length: number) {
 	return str.length > length ? str.slice(0, length) + '...' : str
 }
 
-export { formatTime, calculateRating, trim }
+function getLangCode(lang: string): string {
+	return { 'Bengali': 'bn', 'Hindi': 'hi', 'English': 'en' }[lang]
+}
+
+function getCodeLang(code: string): string {
+	const languageNames = new Intl.DisplayNames(['en'], {
+		type: 'language'
+	});
+	return languageNames.of(code)
+}
+
+export { formatTime, calculateRating, trim, getLangCode, getCodeLang }

@@ -48,7 +48,7 @@ const video = computed(() => [{
 // Settings -> Video -> Resolution
 
 // Settings -> Audio
-const audio = ref([{
+const audio = computed(() => [{
 	dropdown: null, // "channel",
 	icon: "three-dots",
 	name: "Channel",

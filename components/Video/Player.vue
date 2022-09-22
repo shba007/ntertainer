@@ -2,7 +2,7 @@
 import { isNumber } from '@vueuse/shared';
 import { useMedia } from '~/stores/media';
 import { usePlayer } from '~/stores/player';
-import { formatTime } from '~/utils/helpers'
+import { formatTime, getCodeLang } from '~/utils/helpers'
 import { Seek } from '~/utils/models';
 import { PlaybackTimeUpdatedEvent, QualityChangeRequestedEvent } from "~/plugins/dash.js.client";
 
@@ -29,6 +29,7 @@ const emits = defineEmits<{
 watch(() => props.episode, (value: number) => {
 	console.debug(`Episode ${value} is Playing`)
 	player.initialize(video.value, src.value, props.autoplay);
+	playerStore.setSeek(0)
 
 	toggleDropdown(null)
 })
@@ -55,10 +56,10 @@ const qualityIndex = ref(0)
 const isMuted = ref(false)
 const volume = ref(70)
 
-const languages = ref(['Hindi', 'English'])
+const languages = ref([])
 const languageIndex = ref(0)
-const subtitles = ref(['Hindi', 'English'])
-const subtitleIndex = ref(1)
+const subtitles = ref([])
+const subtitleIndex = ref(0)
 const isSubtitle = ref(false)
 
 const duration = ref(0)
@@ -190,15 +191,19 @@ function changeVolume(value: number) {
 	toggleDropdown(null)
 }
 
+function changeLanguage(currentLangIndex: number) {
+	languageIndex.value = currentLangIndex
+	player.setCurrentTrack(player.getTracksFor('audio')[languageIndex.value])
+
+	toggleDropdown(null)
+}
 function changeSubtitle(currentSubtitleIndex: number) {
 	isSubtitle.value = Boolean(currentSubtitleIndex)
 	player.enableText(isSubtitle.value)
 
 	if (isSubtitle.value === true) {
 		subtitleIndex.value = currentSubtitleIndex - 1
-		const lang = { English: 'en', Hindi: 'hi' }[languages.value[subtitleIndex.value]]
-		player.setInitialMediaSettingsFor('text', { lang, role: 'subtitle' });
-		console.log(lang);
+		player.setCurrentTrack(player.getTracksFor('text')[subtitleIndex.value])
 	}
 
 	toggleDropdown(null)
@@ -255,20 +260,31 @@ useEventListener(window, "keydown", onKeyboardControl)
 function onPlayerInit() {
 	console.debug("Steam Initialized");
 	duration.value = player.duration()
-	player.attachTTMLRenderingDiv(subtitle.value);
 
-	const textInfo = player.getBitrateInfoListFor("text")
-	console.table(textInfo, ["mediaType", "bitrate"]);
+	const textInfo = player.getTracksFor('text')
+	console.table(textInfo, ["type", "lang"]);
 
-	const audioInfo = player.getBitrateInfoListFor("audio")
-	console.table(audioInfo, ["mediaType", "bitrate"]);
+	const audioInfo = player.getTracksFor('audio')
+	console.table(audioInfo, ["type", "lang"]);
 
 	const videoInfo = player.getBitrateInfoListFor("video")
 	console.table(videoInfo, ["mediaType", "width", "height", "bitrate"]);
 
+	subtitles.value = textInfo.map((track) => getCodeLang(track.lang))
+	languages.value = audioInfo.map((track) => getCodeLang(track.lang))
+
+	// TODO: Algorithm for finding suitable subtitle and language
+	subtitleIndex.value = subtitles.value.findIndex((lang) => lang === "English")
+	subtitleIndex.value = subtitleIndex.value === -1 ? 0 : subtitleIndex.value
+	languageIndex.value = languages.value.findIndex((lang) => lang === "English")
+	languageIndex.value = languageIndex.value === -1 ? 0 : languageIndex.value
+
+	qualities.value = []
 	for (const info of videoInfo) {
 		qualities.value.push(`${info.height.toString()}p`)
 	}
+
+	player.attachTTMLRenderingDiv(subtitle.value);
 
 	const settings = player.getSettings()
 	settings.streaming.buffer.stableBufferTime = 120
@@ -373,7 +389,7 @@ function onSocketDisconnect() {
 }
 
 onMounted(() => {
-	player.initialize(video.value, src.value, props.autoplay);
+	player.initialize(video.value, src.value, false);
 
 	player.on("streamInitialized", onPlayerInit)
 	player.on("bufferLoaded", onBufferLoaded)
@@ -426,7 +442,7 @@ onBeforeUnmount(() => {
 			@click.self="toggleUserControls">
 			<div
 				class="row-start-1 col-start-1 col-span-2 invisible landscape:visible justify-start self-start text-xl font-head">
-				{{ media.title }}
+				{{ media.title }}: S{{1}} E-{{props.episode}}/{{14}}
 			</div>
 			<div class="row-start-1 col-start-3 justify-end self-start flex items-center gap-6">
 				<NuxtIcon name="cast" class="text-[2rem] cursor-pointer" />
@@ -463,7 +479,8 @@ onBeforeUnmount(() => {
 				@update:resolution="changeQuality"
 				:playbackRate="{value:`${playbackRates[playbackRateIndex]}x`, index:playbackRateIndex , options:playbackRates}"
 				@update:playbackRate="changePlaybackRate"
-				:language="{value:languages[languageIndex], index:languageIndex, options:languages}" @update:language=""
+				:language="{value:languages[languageIndex], index:languageIndex, options:languages}"
+				@update:language="changeLanguage"
 				:subtitle="{value:isSubtitle ? subtitles[subtitleIndex]: 'Off', index:isSubtitle ? subtitleIndex + 1 : 0, options:['Off', ...subtitles]}"
 				@update:subtitle="changeSubtitle"
 				:debug="{value:['Off','On'][Number(debugMode)],index:Number(debugMode),options:['Off','On']}"

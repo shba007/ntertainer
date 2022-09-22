@@ -60,12 +60,10 @@ function onPinStream(participant: Participant) {
 				:local="pinnedParticipant.local" :name="pinnedParticipant.name.first" :audio="pinnedParticipant.audio"
 				:video="pinnedParticipant.video" :stream="pinnedParticipant.stream"
 				class="fixed right-2 top-2 md:right-4 md:top-4 invisible landscape:visible z-10" />
-			<ClientOnly placeholder="Loading...">
-				<LazyVideoPlayer :autoplay="player.playback == 'play'" :type="media.type" :id="media.id"
-					:episode="player.episode" @update:fullscreen="onFullscreen"
-					@update:controls="(value) => controls = value"
-					@update:episode="(episode) => player.episode = episode" />
-			</ClientOnly>
+			<VideoPlayer :autoplay="player.playback == 'play'" :type="media.type" :id="media.id"
+				:episode="player.episode" @update:fullscreen="onFullscreen"
+				@update:controls="(value) => controls = value"
+				@update:episode="(episode) => player.episode = episode" />
 		</section>
 		<section class="flex-grow md:hidden">
 			<h2>{{ media.title }}</h2>
